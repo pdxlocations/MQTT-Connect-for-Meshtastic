@@ -28,7 +28,9 @@ mqtt_port = 1883
 mqtt_username = "meshdev"
 mqtt_password = "large4cats"
 channel = "LongFast"
-node_number = 3126770193
+# node_number = 3126770193
+node_number = 2900000000 + random.randint(0,99999)
+
 node_name = '!' + hex(node_number)[2:]
 client_short_name = "MMC"
 client_long_name = "MQTTastic"
