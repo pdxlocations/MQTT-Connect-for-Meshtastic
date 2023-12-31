@@ -1,5 +1,8 @@
 Meshtastic MQTT Connect by pdxlocations
 
+<img width="1110" alt="topology" src="https://github.com/pdxlocations/Meshtastic-MQTT-Connect/assets/117498748/a0bf657d-2f91-4b7e-8f77-95cecb621153">
+
+
 Many thanks to and code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 
 Requires packages: Meshtastic, Paho-MQTT, Tkinter which might be installed with:
