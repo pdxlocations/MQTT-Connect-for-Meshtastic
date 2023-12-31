@@ -39,9 +39,13 @@ node_info_interval_minutes = 15
 broadcast_id = 4294967295
 last_received_message = None
 db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
-subscribe_topic = "msh/2/c/" + channel + "/#"
-publish_topic = "msh/2/c/" + channel + "/" + node_name
 
+def set_topic():
+    global subscribe_topic, publish_topic, node_number, node_name
+    node_name = '!' + hex(node_number)[2:]
+    subscribe_topic = "msh/2/c/" + channel + "/#"
+    publish_topic = "msh/2/c/" + channel + "/" + node_name
+set_topic()
 
 ### Create database table
 def setup_db():
@@ -179,7 +183,7 @@ def publish_message(destination_id):
 
         # print (service_envelope)
         payload = service_envelope.SerializeToString()
-        publish_topic = "msh/2/c/" + channel + "/" + node_name
+        set_topic()
         if debug: print(f"Publish Topic is: {publish_topic}")
         client.publish(publish_topic, payload)
         message_entry.delete(0, tk.END)
@@ -190,10 +194,11 @@ def send_node_info():
     message =  current_time() + " Sending NodeInfo Packet"
     update_gui(message)
 
-    global client_short_name, client_long_name, node_name, client_hw_model, broadcast_id
+    global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
 
     client_short_name = short_name_entry.get()
     client_long_name = long_name_entry.get()
+    node_number = int(node_number_entry.get())
 
     decoded_client_id = bytes(node_name, "utf-8")
     decoded_client_long = bytes(client_long_name, "utf-8")
@@ -227,7 +232,7 @@ def send_node_info():
     # print (service_envelope)
 
     payload = service_envelope.SerializeToString()
-
+    set_topic()
     client.publish(publish_topic, payload)
 
 
@@ -362,7 +367,7 @@ def disconnect_mqtt():
 
 def on_connect(client, userdata, flags, rc):
 
-    subscribe_topic = "msh/2/c/" + channel + "/#"
+    set_topic()
     
     if debug: print("on_connect")
     if debug: 
