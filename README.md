@@ -2,7 +2,9 @@ Meshtastic MQTT Connect by pdxlocations
 
 Many thanks to and code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 
-Requires packages: Python, Meshtastic, Paho-MQTT, Tkinter
+Requires packages: Meshtastic, Paho-MQTT, Tkinter which might be installed with:
+
+`pip3 install meshtastic paho-mqtt tk`
 
 *** Mac OS Sonoma (and maybe others) ***
 There is an upstream bug in Tkinter where mouse clicks in the UI are not registered, unless the mouse is in motion.
