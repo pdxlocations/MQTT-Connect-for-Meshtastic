@@ -187,7 +187,7 @@ def publish_message(destination_id):
 
 def send_node_info():
     if debug: print("send_node_info")
-    message =  current_time() + ": Sending NodeInfo Packet"
+    message =  current_time() + " Sending NodeInfo Packet"
     update_gui(message)
 
     global client_short_name, client_long_name, node_name, client_hw_model, broadcast_id
