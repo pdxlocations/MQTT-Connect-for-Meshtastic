@@ -1,5 +1,5 @@
 '''
-Meshtastic MQTT Connect Version 0.1 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.1.1 by https://github.com/pdxlocations
 
 Many thanks to and code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 ''' 
