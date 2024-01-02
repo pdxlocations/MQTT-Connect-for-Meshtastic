@@ -1,7 +1,8 @@
 '''
-Meshtastic MQTT Connect Version 0.1.1 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.1.2 by https://github.com/pdxlocations
 
-Many thanks to and code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
+Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
+Decryption help from dstewartgo
 ''' 
 
 import tkinter as tk
@@ -32,26 +33,11 @@ mqtt_port = 1883
 mqtt_username = "meshdev"
 mqtt_password = "large4cats"
 
-# channel = "DaveTest"
-# key = "oHhVwiPQNydj9UC651Ave7ywJmfjW68kfEEvnddDXnM=" # for DaveTest
-
-# {0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01}
-
 channel = "LongFast"
 key = "AQ=="
 
-# channel = "pdxlocs"
-# key = "p5a0RP536ZOxK06vtnALnfkwXlU6KnpiHDXhbspl8s4=" #pdxlocs
-
-
-padded_key = key.ljust(len(key) + ((4 - (len(key) % 4)) % 4), '=')
-print (padded_key)
-replaced_key = padded_key.replace('-', '+').replace('_', '/')
-key = replaced_key
-
-
-node_number = 3126770193
-# node_number = 2900000000 + random.randint(0,99999)
+# node_number = 3126770193
+node_number = 2900000000 + random.randint(0,99999)
 
 node_name = '!' + hex(node_number)[2:]
 client_short_name = "MMC"
@@ -97,10 +83,6 @@ def on_message(client, userdata, msg):
     se.ParseFromString(msg.payload)
     mp = se.packet
 
-
-    # print (mp)
-
-
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
         try:
             # Get requirements
@@ -134,14 +116,6 @@ def on_message(client, userdata, msg):
             return
 
 
-
-
-
-
-
-
-
-
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
         text_payload = mp.decoded.payload.decode("utf-8")
         process_message(mp, text_payload)
@@ -154,17 +128,17 @@ def on_message(client, userdata, msg):
         maybe_store_nodeinfo_in_db(info)
         print(info)
         
-    elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
-        pos = mesh_pb2.Position()
-        pos.ParseFromString(mp.decoded.payload)
-        print(getattr(mp, "from"))
-        print(pos)
+    # elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
+    #     pos = mesh_pb2.Position()
+    #     pos.ParseFromString(mp.decoded.payload)
+    #     print(getattr(mp, "from"))
+    #     print(pos)
 
-    elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
-        env = telemetry_pb2.EnvironmentMetrics()
-        env.ParseFromString(mp.decoded.payload)
-        print (f"{env.temperature}, {env.relative_humidity}")
-        print(env)
+    # elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
+    #     env = telemetry_pb2.EnvironmentMetrics()
+    #     env.ParseFromString(mp.decoded.payload)
+    #     print (f"{env.temperature}, {env.relative_humidity}")
+    #     print(env)
 
 def current_time():
     current_time_seconds = time.time()
@@ -408,6 +382,11 @@ def connect_mqtt():
             channel = channel_entry.get()
             key = key_entry.get()
             node_number = int(node_number_entry.get())  # Convert the input to an integer
+
+            padded_key = key.ljust(len(key) + ((4 - (len(key) % 4)) % 4), '=')
+            print (padded_key)
+            replaced_key = padded_key.replace('-', '+').replace('_', '/')
+            key = replaced_key
 
             db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
             setup_db()
