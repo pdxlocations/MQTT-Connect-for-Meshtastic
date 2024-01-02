@@ -524,7 +524,7 @@ channel_entry.grid(row=3, column=1, padx=10, pady=2, sticky=tk.EW)
 channel_entry.insert(0, channel)
 
 
-key_label = tk.Label(root, text="Key:")
+key_label = tk.Label(root, text="Key: (decrypt receive only)")
 key_label.grid(row=4, column=0, padx=10, pady=2, sticky=tk.W)
 
 key_entry = tk.Entry(root)
