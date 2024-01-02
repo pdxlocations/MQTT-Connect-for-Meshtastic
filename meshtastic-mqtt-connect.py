@@ -13,6 +13,10 @@ import threading
 import sqlite3
 import time
 import tkinter.messagebox
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from base64 import b64encode, b64decode
+import base64
 
 debug = True
 
@@ -27,9 +31,21 @@ mqtt_broker = "mqtt.meshtastic.org"
 mqtt_port = 1883
 mqtt_username = "meshdev"
 mqtt_password = "large4cats"
-channel = "LongFast"
-# node_number = 3126770193
-node_number = 2900000000 + random.randint(0,99999)
+
+
+# mqtt_broker = "192.168.86.100"
+# mqtt_port = 1883
+# mqtt_username = "pdxlocs"
+# mqtt_password = "sausage"
+
+mqtt_broker = "mqtt.meshtastic.org"
+mqtt_port = 1883
+mqtt_username = "meshdev"
+mqtt_password = "large4cats"
+
+channel = "DaveTest"
+node_number = 3126770193
+# node_number = 2900000000 + random.randint(0,99999)
 
 node_name = '!' + hex(node_number)[2:]
 client_short_name = "MMC"
@@ -71,32 +87,89 @@ def setup_db():
 def on_message(client, userdata, msg):
     # if debug: print("on_message")
     se = mqtt_pb2.ServiceEnvelope()
+
+    print (f"message: {msg}")
+    print (f"Service env: {se}")
     se.ParseFromString(msg.payload)
     mp = se.packet
+
+
+    # print (mp)
+
+
+    if mp.HasField("encrypted") and not mp.HasField("decoded"):
+        try:
+            # Get requirements
+            
+
+            # This is the key for "DaveTest" channel -- this should be filled in at the UI level
+            # rather than hard-coded here, but feel free to use it for testing!
+            # Note that I couldn't get the key for LongTest (which is just AQ==, or byte 1) to work,
+            # even after expanding it out to 32 bytes, not sure why -- perhaps this is because some
+            # people are using 'LongFast' with a different key from the default? It seems like most
+            # traffic is already pre-decoded before going into MQTT on that channel anyway.
+            key = "oHhVwiPQNydj9UC651Ave7ywJmfjW68kfEEvnddDXnM="
+            
+
+            # Convert key to bytes
+            key_bytes = base64.b64decode(key.encode('ascii'))
+
+            # Build the nonce, which is 8 little-endian bytes from the packet id ...
+            nonce_packet_id = getattr(mp, "id").to_bytes(8, "little")
+            # ... and 4 little-endian bytes from the "from" node.
+            nonce_from_node = getattr(mp, "from").to_bytes(8, "little")
+
+            # Put both parts into a single byte array.
+            nonce = nonce_packet_id + nonce_from_node
+
+            # decrypt_cipher = AES.new(key_bytes, AES.MODE_CTR, nonce=nonce)
+
+            cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
+            decryptor = cipher.decryptor()
+            decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
+
+
+            # plain_text = decrypted_bytes.decrypt(getattr(mp, "encrypted"))
+            data = mesh_pb2.Data()
+            data.ParseFromString(decrypted_bytes)
+            mp.decoded.CopyFrom(data)
+
+        except Exception as e:
+            print(f"*** Decryption failed: {str(e)}")
+            return
+
+
+
+
+
+
+
+
+
 
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
         text_payload = mp.decoded.payload.decode("utf-8")
         process_message(mp, text_payload)
-        # print(f"{text_payload}")
+        print(f"{text_payload}")
         
 
     elif mp.decoded.portnum == portnums_pb2.NODEINFO_APP:
         info = mesh_pb2.User()
         info.ParseFromString(mp.decoded.payload)
         maybe_store_nodeinfo_in_db(info)
-        # print(info)
+        print(info)
         
-    # elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
-    #     pos = mesh_pb2.Position()
-    #     pos.ParseFromString(mp.decoded.payload)
-    #     print(getattr(mp, "from"))
-    #     print(pos)
+    elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
+        pos = mesh_pb2.Position()
+        pos.ParseFromString(mp.decoded.payload)
+        print(getattr(mp, "from"))
+        print(pos)
 
-    # elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
-    #     env = telemetry_pb2.EnvironmentMetrics()
-    #     env.ParseFromString(mp.decoded.payload)
-    #     print (f"{env.temperature}, {env.relative_humidity}")
-    #     # print(env)
+    elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
+        env = telemetry_pb2.EnvironmentMetrics()
+        env.ParseFromString(mp.decoded.payload)
+        print (f"{env.temperature}, {env.relative_humidity}")
+        print(env)
 
 def current_time():
     current_time_seconds = time.time()
