@@ -36,8 +36,8 @@ mqtt_password = "large4cats"
 channel = "LongFast"
 key = "AQ=="
 
-# node_number = 3126770193
-node_number = 2900000000 + random.randint(0,99999)
+node_number = 3126770193
+# node_number = 2900000000 + random.randint(0,99999)
 
 node_name = '!' + hex(node_number)[2:]
 client_short_name = "MMC"
@@ -119,14 +119,14 @@ def on_message(client, userdata, msg):
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
         text_payload = mp.decoded.payload.decode("utf-8")
         process_message(mp, text_payload)
-        print(f"{text_payload}")
+        # print(f"{text_payload}")
         
 
     elif mp.decoded.portnum == portnums_pb2.NODEINFO_APP:
         info = mesh_pb2.User()
         info.ParseFromString(mp.decoded.payload)
         maybe_store_nodeinfo_in_db(info)
-        print(info)
+        # print(info)
         
     # elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
     #     pos = mesh_pb2.Position()
@@ -216,8 +216,8 @@ def publish_message(destination_id):
         setattr(mesh_packet, "from", node_number)
         mesh_packet.id = random.getrandbits(32)
         mesh_packet.to = destination_id
-        # mesh_packet.want_ack = True
-        mesh_packet.want_ack = False
+        mesh_packet.want_ack = True
+        # mesh_packet.want_ack = False
         mesh_packet.channel = 0
         mesh_packet.hop_limit = 3
 
