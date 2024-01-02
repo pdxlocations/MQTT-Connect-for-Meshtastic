@@ -32,18 +32,24 @@ mqtt_port = 1883
 mqtt_username = "meshdev"
 mqtt_password = "large4cats"
 
+# channel = "DaveTest"
+# key = "oHhVwiPQNydj9UC651Ave7ywJmfjW68kfEEvnddDXnM=" # for DaveTest
 
-# mqtt_broker = "192.168.86.100"
-# mqtt_port = 1883
-# mqtt_username = "pdxlocs"
-# mqtt_password = "sausage"
+# {0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01}
 
-mqtt_broker = "mqtt.meshtastic.org"
-mqtt_port = 1883
-mqtt_username = "meshdev"
-mqtt_password = "large4cats"
+channel = "LongFast"
+key = "AQ=="
 
-channel = "DaveTest"
+# channel = "pdxlocs"
+# key = "p5a0RP536ZOxK06vtnALnfkwXlU6KnpiHDXhbspl8s4=" #pdxlocs
+
+
+padded_key = key.ljust(len(key) + ((4 - (len(key) % 4)) % 4), '=')
+print (padded_key)
+replaced_key = padded_key.replace('-', '+').replace('_', '/')
+key = replaced_key
+
+
 node_number = 3126770193
 # node_number = 2900000000 + random.randint(0,99999)
 
@@ -87,9 +93,7 @@ def setup_db():
 def on_message(client, userdata, msg):
     # if debug: print("on_message")
     se = mqtt_pb2.ServiceEnvelope()
-
-    print (f"message: {msg}")
-    print (f"Service env: {se}")
+    # print (f"message: {msg}")
     se.ParseFromString(msg.payload)
     mp = se.packet
 
@@ -100,29 +104,20 @@ def on_message(client, userdata, msg):
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
         try:
             # Get requirements
-            
-
-            # This is the key for "DaveTest" channel -- this should be filled in at the UI level
-            # rather than hard-coded here, but feel free to use it for testing!
-            # Note that I couldn't get the key for LongTest (which is just AQ==, or byte 1) to work,
-            # even after expanding it out to 32 bytes, not sure why -- perhaps this is because some
-            # people are using 'LongFast' with a different key from the default? It seems like most
-            # traffic is already pre-decoded before going into MQTT on that channel anyway.
-            key = "oHhVwiPQNydj9UC651Ave7ywJmfjW68kfEEvnddDXnM="
-            
 
             # Convert key to bytes
             key_bytes = base64.b64decode(key.encode('ascii'))
 
-            # Build the nonce, which is 8 little-endian bytes from the packet id ...
             nonce_packet_id = getattr(mp, "id").to_bytes(8, "little")
-            # ... and 4 little-endian bytes from the "from" node.
             nonce_from_node = getattr(mp, "from").to_bytes(8, "little")
 
             # Put both parts into a single byte array.
             nonce = nonce_packet_id + nonce_from_node
 
             # decrypt_cipher = AES.new(key_bytes, AES.MODE_CTR, nonce=nonce)
+            if key == "AQ==":
+                key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
+
 
             cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
             decryptor = cipher.decryptor()
@@ -247,7 +242,8 @@ def publish_message(destination_id):
         setattr(mesh_packet, "from", node_number)
         mesh_packet.id = random.getrandbits(32)
         mesh_packet.to = destination_id
-        mesh_packet.want_ack = True
+        # mesh_packet.want_ack = True
+        mesh_packet.want_ack = False
         mesh_packet.channel = 0
         mesh_packet.hop_limit = 3
 
@@ -403,13 +399,14 @@ def on_nodeinfo_click(event):
 
 def connect_mqtt():
     if debug: print("connect_mqtt")
-    global mqtt_broker, mqtt_username, mqtt_password, channel, node_number, db_file_path
+    global mqtt_broker, mqtt_username, mqtt_password, channel, node_number, db_file_path, key
     if not client.is_connected():
         try:
             mqtt_broker = mqtt_broker_entry.get()
             mqtt_username = mqtt_username_entry.get()
             mqtt_password = mqtt_password_entry.get()
             channel = channel_entry.get()
+            key = key_entry.get()
             node_number = int(node_number_entry.get())  # Convert the input to an integer
 
             db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
@@ -548,31 +545,40 @@ channel_entry.grid(row=3, column=1, padx=10, pady=2, sticky=tk.EW)
 channel_entry.insert(0, channel)
 
 
+key_label = tk.Label(root, text="Key:")
+key_label.grid(row=4, column=0, padx=10, pady=2, sticky=tk.W)
+
+key_entry = tk.Entry(root)
+key_entry.grid(row=4, column=1, padx=10, pady=2, sticky=tk.EW)
+key_entry.insert(0, key)
+
+
+
 node_number_label = tk.Label(root, text="Node Number:")
-node_number_label.grid(row=4, column=0, padx=10, pady=2, sticky=tk.W)
+node_number_label.grid(row=5, column=0, padx=10, pady=2, sticky=tk.W)
 
 node_number_entry = tk.Entry(root)
-node_number_entry.grid(row=4, column=1, padx=10, pady=2, sticky=tk.EW)
+node_number_entry.grid(row=5, column=1, padx=10, pady=2, sticky=tk.EW)
 node_number_entry.insert(0, node_number)
 
 
 separator_label = tk.Label(root, text="____________")
-separator_label.grid(row=5, column=0, padx=10, pady=2, sticky=tk.W)
+separator_label.grid(row=6, column=0, padx=10, pady=2, sticky=tk.W)
 
 
 long_name_label = tk.Label(root, text="Long Name:")
-long_name_label.grid(row=6, column=0, padx=10, pady=2, sticky=tk.W)
+long_name_label.grid(row=7, column=0, padx=10, pady=2, sticky=tk.W)
 
 long_name_entry = tk.Entry(root)
-long_name_entry.grid(row=6, column=1, padx=10, pady=2, sticky=tk.EW)
+long_name_entry.grid(row=7, column=1, padx=10, pady=2, sticky=tk.EW)
 long_name_entry.insert(0, client_long_name)
 
 
 short_name_label = tk.Label(root, text="Short Name:")
-short_name_label.grid(row=7, column=0, padx=10, pady=2, sticky=tk.W)
+short_name_label.grid(row=8, column=0, padx=10, pady=2, sticky=tk.W)
 
 short_name_entry = tk.Entry(root)
-short_name_entry.grid(row=7, column=1, padx=10, pady=2, sticky=tk.EW)
+short_name_entry.grid(row=8, column=1, padx=10, pady=2, sticky=tk.EW)
 short_name_entry.insert(0, client_short_name)
 
 ### BUTTONS
@@ -590,33 +596,33 @@ erase_database_button.grid(row=3, column=2, padx=10, pady=2, sticky=tk.EW)
 
 ### INTERFACE WINDOW
 message_history = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=30)
-message_history.grid(row=8, column=0, columnspan=3, padx=10, pady=10)
+message_history.grid(row=9, column=0, columnspan=3, padx=10, pady=10)
 message_history.config(state=tk.DISABLED)
 
 ### MESSAGE ENTRY
 enter_message_label = tk.Label(root, text="Enter message:")
-enter_message_label.grid(row=9, column=0, padx=10, pady=2, sticky=tk.W)
+enter_message_label.grid(row=10, column=0, padx=10, pady=2, sticky=tk.W)
 
 message_entry = tk.Entry(root)
-message_entry.grid(row=10, column=0, columnspan=3, padx=10, pady=2, sticky=tk.EW)
+message_entry.grid(row=11, column=0, columnspan=3, padx=10, pady=2, sticky=tk.EW)
 
 ### MESSAGE ACTION
 entry_dm_label = tk.Label(root, text="DM to (click a node):")
-entry_dm_label.grid(row=11, column=1, padx=10, pady=2, sticky=tk.E)
+entry_dm_label.grid(row=12, column=1, padx=10, pady=2, sticky=tk.E)
 
 entry_dm = tk.Entry(root)
-entry_dm.grid(row=11, column=2, padx=10, pady=2, sticky=tk.EW)
+entry_dm.grid(row=12, column=2, padx=10, pady=2, sticky=tk.EW)
 
 broadcast_button = tk.Button(root, text="Broadcast Message", command=lambda: publish_message(broadcast_id))
-broadcast_button.grid(row=12, column=0, padx=10, pady=15, sticky=tk.EW)
+broadcast_button.grid(row=13, column=0, padx=10, pady=15, sticky=tk.EW)
 
 dm_button = tk.Button(root, text="Direct Message", command=lambda: direct_message(entry_dm.get()))
-dm_button.grid(row=12, column=2, padx=10, pady=15, sticky=tk.EW)
+dm_button.grid(row=13, column=2, padx=10, pady=15, sticky=tk.EW)
 
 
 ### NODE LIST
 nodeinfo_window = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=60, height=50)
-nodeinfo_window.grid(row=0, rowspan = 13, column=3, padx=10, pady=2, sticky=tk.NS)
+nodeinfo_window.grid(row=0, rowspan = 14, column=3, padx=10, pady=2, sticky=tk.NS)
 nodeinfo_window.bind("<Enter>", on_nodeinfo_enter)
 nodeinfo_window.bind("<Leave>", on_nodeinfo_leave)
 nodeinfo_window.bind("<Button-1>", on_nodeinfo_click)
