@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 '''
 Meshtastic MQTT Connect Version 0.1.2 by https://github.com/pdxlocations
 
