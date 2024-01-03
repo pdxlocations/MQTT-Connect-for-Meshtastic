@@ -204,9 +204,13 @@ def on_message(client, userdata, msg):
     # if debug: print("on_message")
     se = mqtt_pb2.ServiceEnvelope()
     # print (f"message: {msg}")
-    se.ParseFromString(msg.payload)
-    mp = se.packet
-
+    try:
+        se.ParseFromString(msg.payload)
+        mp = se.packet
+    except Exception as e:
+        print(f"*** ParseFromString: {str(e)}")
+        return
+    
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
         try:
             # Convert key to bytes
@@ -375,7 +379,7 @@ def send_node_info():
     decoded_client_id = bytes(node_name, "utf-8")
     decoded_client_long = bytes(client_long_name, "utf-8")
     decoded_client_short = bytes(client_short_name, "utf-8")
-    decoded_client_hw_model = 255
+    decoded_client_hw_model = client_hw_model
     user_payload = mesh_pb2.User()
     setattr(user_payload, "id", decoded_client_id)
     setattr(user_payload, "long_name", decoded_client_long)
@@ -401,7 +405,7 @@ def send_node_info():
     service_envelope.packet.CopyFrom(mesh_packet)
     service_envelope.channel_id = channel
     service_envelope.gateway_id = node_name
-    # print (service_envelope)
+    print (service_envelope)
 
     payload = service_envelope.SerializeToString()
     set_topic()
@@ -433,6 +437,23 @@ def maybe_store_nodeinfo_in_db(info):
             # Display the new record in the nodeinfo_window widget
             message = f"{new_record[0]}, {new_record[1]}, {new_record[2]}"
             update_gui(message, text_widget=nodeinfo_window)
+        else:
+            # Check if long_name or short_name is different, update if necessary
+            if existing_record[1] != info.long_name or existing_record[2] != info.short_name:
+                if debug: print("updating existing record in db")
+                db_cursor.execute('''
+                    UPDATE nodeinfo
+                    SET long_name=?, short_name=?
+                    WHERE user_id=?
+                ''', (info.long_name, info.short_name, info.id))
+                db_connection.commit()
+
+                # Fetch the updated record
+                updated_record = db_cursor.execute('SELECT * FROM nodeinfo WHERE user_id=?', (info.id,)).fetchone()
+
+                # Display the updated record in the nodeinfo_window widget
+                message = f"{updated_record[0]}, {updated_record[1]}, {updated_record[2]}"
+                update_gui(message, text_widget=nodeinfo_window)
 
     except sqlite3.Error as e:
         print(f"SQLite error in maybe_store_nodeinfo_in_db: {e}")
