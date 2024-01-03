@@ -7,7 +7,7 @@ Decryption help from dstewartgo
 ''' 
 
 import tkinter as tk
-from tkinter import scrolledtext
+from tkinter import scrolledtext, simpledialog
 import paho.mqtt.client as mqtt
 from meshtastic import mesh_pb2, mqtt_pb2, portnums_pb2, telemetry_pb2
 import random
@@ -19,6 +19,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from base64 import b64encode, b64decode
 import base64
+import json
+
 
 debug = True
 
@@ -51,6 +53,123 @@ default_key = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc,
 broadcast_id = 4294967295
 last_received_message = None
 db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
+PRESETS_FILE = "presets.json"
+
+
+class Preset:
+    def __init__(self, name, broker, username, password, channel, key, node_number, long_name, short_name):
+        self.name = name
+        self.broker = broker
+        self.username = username
+        self.password = password
+        self.channel = channel
+        self.key = key
+        self.node_number = node_number
+        self.long_name = long_name
+        self.short_name = short_name
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'broker': self.broker,
+            'username': self.username,
+            'password': self.password,
+            'channel': self.channel,
+            'key': self.key,
+            'node_number': self.node_number,
+            'long_name': self.long_name,
+            'short_name': self.short_name
+        }
+    
+presets = {}
+# presets["Default"] = Preset("Default", "mqtt.meshtastic.org", "meshdev", "large4cats", "LongFast", "AQ==", 3126770193, "MQTTastic", "MMC")
+
+def save_preset():
+    if debug: print("save_preset")
+    name = tkinter.simpledialog.askstring("Save Preset", "Enter preset name:")
+        # Check if the user clicked Cancel
+    if name is None:
+        return
+
+    preset = Preset(name, mqtt_broker_entry.get(), mqtt_username_entry.get(), mqtt_password_entry.get(),
+                    channel_entry.get(), key_entry.get(), node_number_entry.get(),
+                    long_name_entry.get(), short_name_entry.get())
+    presets[name] = preset  # Store the Preset object directly
+    update_preset_dropdown()
+    preset_var.set(name) 
+    save_presets_to_file()
+
+# Function to load the selected preset
+def load_preset():
+    if debug: print("load_preset")
+    selected_preset_name = preset_var.get()
+    
+    if selected_preset_name in presets:
+        selected_preset = presets[selected_preset_name]
+        if debug: print(f"Loading preset: {selected_preset_name}")
+        
+        mqtt_broker_entry.delete(0, tk.END)
+        mqtt_broker_entry.insert(0, selected_preset.broker)
+        mqtt_username_entry.delete(0, tk.END)
+        mqtt_username_entry.insert(0, selected_preset.username)
+        mqtt_password_entry.delete(0, tk.END)
+        mqtt_password_entry.insert(0, selected_preset.password)
+        channel_entry.delete(0, tk.END)
+        channel_entry.insert(0, selected_preset.channel)
+        key_entry.delete(0, tk.END)
+        key_entry.insert(0, selected_preset.key)
+        node_number_entry.delete(0, tk.END)
+        node_number_entry.insert(0, selected_preset.node_number)
+        long_name_entry.delete(0, tk.END)
+        long_name_entry.insert(0, selected_preset.long_name)
+        short_name_entry.delete(0, tk.END)
+        short_name_entry.insert(0, selected_preset.short_name)
+
+    else:
+        print(f"Error: Preset '{selected_preset_name}' not found.")
+    
+
+    
+def update_preset_dropdown():
+    # Update the preset dropdown menu
+    preset_names = list(presets.keys())
+    menu = preset_dropdown['menu']
+    menu.delete(0, 'end')
+    for preset_name in preset_names:
+        menu.add_command(label=preset_name, command=tk._setit(preset_var, preset_name, lambda *args: load_preset()))
+
+
+
+
+
+def preset_var_changed(*args):
+    selected_option = preset_var.get()
+    update_preset_dropdown()
+    print(f"Selected Option: {selected_option}")
+
+
+
+
+# Function to save the presets to a file
+# Function to save the presets to a file
+def save_presets_to_file():
+    if debug: print("save_presets_to_file")
+
+    with open(PRESETS_FILE, "w") as file:
+        json.dump({name: preset.__dict__ for name, preset in presets.items()}, file, indent=2)
+
+# Function to load presets from a file
+def load_presets_from_file():
+    if debug: print("load_presets_from_file")
+    try:
+        with open(PRESETS_FILE, "r") as file:
+            loaded_presets = json.load(file)
+            return {name: Preset(**data) for name, data in loaded_presets.items()}
+    except FileNotFoundError:
+        return {}
+# Initialize presets from the file
+presets = load_presets_from_file()
+
 
 def set_topic():
     global subscribe_topic, publish_topic, node_number, node_name
@@ -661,6 +780,28 @@ erase_nodedb_button.grid(row=3, column=2, padx=10, pady=1, sticky=tk.EW)
 
 erase_messagedb_button = tk.Button(root, text="Erase Message History", command=erase_messagedb)
 erase_messagedb_button.grid(row=4, column=2, padx=10, pady=1, sticky=tk.EW)
+
+
+preset_label = tk.Label(root, text="Select Preset:")
+preset_label.grid(row=5, column=2, padx=10, pady=1, sticky=tk.W)
+
+
+preset_var = tk.StringVar(root)
+preset_var.set("Select an option")
+preset_dropdown = tk.OptionMenu(root, preset_var, "Default", *list(presets.keys()))
+preset_dropdown.grid(row=6, column=2, padx=10, pady=1, sticky=tk.EW)
+preset_var.trace_add("write", lambda *args: update_preset_dropdown())
+update_preset_dropdown()
+
+save_preset_button = tk.Button(root, text="Save Preset", command=save_preset)
+save_preset_button.grid(row=7, column=2, padx=10, pady=1, sticky=tk.EW)
+
+
+
+
+
+
+
 
 ### INTERFACE WINDOW
 message_history = scrolledtext.ScrolledText(root, wrap=tk.WORD)

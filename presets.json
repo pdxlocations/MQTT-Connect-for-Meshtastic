@@ -1,0 +1,13 @@
+{
+  "Default": {
+    "name": "Default",
+    "broker": "mqtt.meshtastic.org",
+    "username": "meshdev",
+    "password": "large4cats",
+    "channel": "LongFast",
+    "key": "AQ==",
+    "node_number": "3126770193",
+    "long_name": "MQTTastic",
+    "short_name": "MMC"
+  }
+}
