@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-Meshtastic MQTT Connect Version 0.1.3 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.1.4 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Decryption help from dstewartgo
@@ -47,6 +47,7 @@ client_hw_model = 255
 node_info_interval_minutes = 15
 
 ### Program variables
+default_key = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01]) # AQ==
 broadcast_id = 4294967295
 last_received_message = None
 db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
@@ -56,9 +57,9 @@ def set_topic():
     node_name = '!' + hex(node_number)[2:]
     subscribe_topic = "msh/2/c/" + channel + "/#"
     publish_topic = "msh/2/c/" + channel + "/" + node_name
-set_topic()
 
-### Create database table
+
+### Create database table for NodeDB
 def setup_db():
     if debug: print("setup_db")
     global db_connection
@@ -73,6 +74,17 @@ def setup_db():
             short_name TEXT
         )
     ''')
+
+    # Create a new table for storing messages
+    db_cursor.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            timestamp TEXT,
+            sender TEXT,
+            content TEXT,
+            message_id TEXT        
+        )
+    ''')
+
     db_connection.commit()
     db_connection.close()
 
@@ -86,8 +98,6 @@ def on_message(client, userdata, msg):
 
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
         try:
-            # Get requirements
-
             # Convert key to bytes
             key_bytes = base64.b64decode(key.encode('ascii'))
 
@@ -99,7 +109,7 @@ def on_message(client, userdata, msg):
 
             # decrypt_cipher = AES.new(key_bytes, AES.MODE_CTR, nonce=nonce)
             if key == "AQ==":
-                key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
+                key_bytes = default_key
 
 
             cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
@@ -154,12 +164,17 @@ def process_message(mp, text_payload):
     if text_payload != last_received_message:
         sender_short_name = get_short_name_by_id(getattr(mp, "from"))
         if getattr(mp, "to") == node_number:
-            update_gui(f"{current_time()} DM from {sender_short_name}: {text_payload}", message_history)
+            string = f"{current_time()} DM from {sender_short_name}: {text_payload}"
         elif getattr(mp, "from") == node_number and getattr(mp, "to") != broadcast_id:
             receiver_short_name = get_short_name_by_id(getattr(mp, "to"))
-            update_gui(f"{current_time()} DM to {receiver_short_name}: {text_payload}", message_history)
+            string = f"{current_time()} DM to {receiver_short_name}: {text_payload}"
         else:    
-            update_gui(f"{current_time()} {sender_short_name}: {text_payload}")
+            string = f"{current_time()} {sender_short_name}: {text_payload}"
+
+        update_gui(string, message_history)
+        m_id = getattr(mp, "id")
+        insert_message_to_db(current_time(), sender_short_name, text_payload, m_id)
+
         last_received_message = text_payload
         text = {
             "message": text_payload,
@@ -286,7 +301,6 @@ def maybe_store_nodeinfo_in_db(info):
     if debug: print("node info packet received: Checking for existing entry in DB")
 
     try:
-
         db_connection = sqlite3.connect(db_file_path)
         db_cursor = db_connection.cursor()
         
@@ -316,9 +330,77 @@ def maybe_store_nodeinfo_in_db(info):
         db_connection.close()
 
 
+def update_node_list():
+    try:
+        db_connection = sqlite3.connect(db_file_path)
+        db_cursor = db_connection.cursor()
 
-def erase_database():
-    if debug: print("erase_database")
+        # Fetch all nodes from the database
+        nodes = db_cursor.execute('SELECT user_id, long_name, short_name FROM nodeinfo').fetchall()
+
+        # Clear the display
+        nodeinfo_window.config(state=tk.NORMAL)
+        nodeinfo_window.delete('1.0', tk.END)
+
+        # Display each node in the nodeinfo_window widget
+        for node in nodes:
+            message = f"{node[0]}, {node[1]}, {node[2]}\n"
+            nodeinfo_window.insert(tk.END, message)
+
+        nodeinfo_window.config(state=tk.DISABLED)
+
+    except sqlite3.Error as e:
+        print(f"SQLite error in update_node_list: {e}")
+
+    finally:
+        db_connection.close()
+
+
+def insert_message_to_db(time, sender_short_name, text_payload, message_id):
+    if debug: print("insert_message_to_db")
+    try:
+        db_connection = sqlite3.connect(db_file_path)
+        db_cursor = db_connection.cursor()
+
+        # Strip newline characters and insert the message into the messages table
+        formatted_message = text_payload.strip()
+        db_cursor.execute('INSERT INTO messages (timestamp, sender, content, message_id) VALUES (?,?,?,?)', (time, sender_short_name, formatted_message, message_id))
+        db_connection.commit()
+
+    except sqlite3.Error as e:
+        print(f"SQLite error in insert_message_to_db: {e}")
+
+    finally:
+        db_connection.close()
+
+def load_message_history_from_db():
+    if debug: print("load_message_history_from_db")
+    try:
+        db_connection = sqlite3.connect(db_file_path)
+        db_cursor = db_connection.cursor()
+
+        # Fetch all messages from the database
+        messages = db_cursor.execute('SELECT timestamp, sender, content FROM messages').fetchall()
+
+        message_history.config(state=tk.NORMAL)
+        message_history.delete('1.0', tk.END)
+
+        # Display each message in the message_history widget
+        for message in messages:
+            the_message = f"{message[0]} {message[1]} {message[2]}\n"
+            message_history.insert(tk.END, the_message)
+
+        message_history.config(state=tk.DISABLED)
+
+    except sqlite3.Error as e:
+        print(f"SQLite error in load_message_history_from_db: {e}")
+
+    finally:
+        db_connection.close()
+
+
+def erase_nodedb():
+    if debug: print("erase_nodedb")
 
     confirmed = tkinter.messagebox.askyesno("Confirmation", "Are you sure you want to erase the database: " + db_file_path + "?")
 
@@ -340,14 +422,38 @@ def erase_database():
     else:
         update_gui("Database erase cancelled.")
 
+def erase_messagedb():
+    if debug: print("erase_messagedb")
+
+    confirmed = tkinter.messagebox.askyesno("Confirmation", "Are you sure you want to erase the message history of: " + db_file_path + "?")
+
+    if confirmed:
+        db_connection = sqlite3.connect(db_file_path)
+        db_cursor = db_connection.cursor()
+
+        # Clear all records from the database
+        db_cursor.execute('DELETE FROM messages')
+        db_connection.commit()
+
+        db_connection.close()
+
+        # Clear the display
+        message_history.config(state=tk.NORMAL)
+        message_history.delete('1.0', tk.END)
+        message_history.config(state=tk.DISABLED)
+        update_gui("Database erased successfully.")
+    else:
+        update_gui("Database erase cancelled.")
+
 
 def update_gui(text_payload, text_widget=None):
-    text_widget = text_widget or message_history
     if debug: print(f"updating GUI with: {text_payload}")
+    text_widget = text_widget or message_history
     text_widget.config(state=tk.NORMAL)
     text_widget.insert(tk.END, f"{text_payload}\n")
     text_widget.config(state=tk.DISABLED)
     text_widget.yview(tk.END)
+
 
 def on_nodeinfo_enter(event):
     # Change the cursor to a pointer when hovering over text
@@ -389,7 +495,7 @@ def connect_mqtt():
             replaced_key = padded_key.replace('-', '+').replace('_', '/')
             key = replaced_key
 
-            db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
+            db_file_path = mqtt_broker + "_" + channel + ".db"
             setup_db()
 
             client.username_pw_set(mqtt_username, mqtt_password)
@@ -408,7 +514,7 @@ def disconnect_mqtt():
     if debug: print("disconnect_mqtt")
     if client.is_connected():
         client.disconnect()
-        update_gui("Disconnected from MQTT broker")
+        update_gui(f"{current_time()} Disconnected from MQTT broker")
         # Clear the display
         nodeinfo_window.config(state=tk.NORMAL)
         nodeinfo_window.delete('1.0', tk.END)
@@ -427,12 +533,14 @@ def on_connect(client, userdata, flags, rc):
             print("client is connected")
     
     if rc == 0:
-
+        load_message_history_from_db()
         if debug: print(f"Subscribe Topic is: {subscribe_topic}")
         client.subscribe(subscribe_topic)
-        message = f"Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
+        message = f"{current_time()} Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
+
         update_gui(message)
         send_node_info()
+
     else:
         message = f"Failed to connect to MQTT broker with result code {str(rc)}"
         update_gui(message)
@@ -443,34 +551,6 @@ def on_disconnect(client, userdata, rc):
     if rc != 0:
         message = f"Disconnected from MQTT broker with result code {str(rc)}"
         update_gui(message)
-
-
-def update_node_list():
-    try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
-
-        # Fetch all nodes from the database
-        nodes = db_cursor.execute('SELECT user_id, long_name, short_name FROM nodeinfo').fetchall()
-
-        # Clear the display
-        nodeinfo_window.config(state=tk.NORMAL)
-        nodeinfo_window.delete('1.0', tk.END)
-
-        # Display each node in the nodeinfo_window widget
-        for node in nodes:
-            message = f"{node[0]}, {node[1]}, {node[2]}\n"
-            nodeinfo_window.insert(tk.END, message)
-
-        nodeinfo_window.config(state=tk.DISABLED)
-
-    except sqlite3.Error as e:
-        print(f"SQLite error in update_node_list: {e}")
-
-    finally:
-        db_connection.close()
-
-
 
 
 ############################
@@ -496,7 +576,6 @@ y = (hs/2) - (h/2)
 
 root.geometry("+%d+%d" %(x,y))
 # root.resizable(0,0)
-
 
 ### SERVER SETTINGS
 mqtt_broker_label = tk.Label(root, text="MQTT Broker:")
@@ -577,8 +656,11 @@ disconnect_button.grid(row=1, column=2, padx=10, pady=1, sticky=tk.EW)
 node_info_button = tk.Button(root, text="Send NodeInfo", command=send_node_info)
 node_info_button.grid(row=2, column=2, padx=10, pady=1, sticky=tk.EW)
 
-erase_database_button = tk.Button(root, text="Erase NodeDB", command=erase_database)
-erase_database_button.grid(row=3, column=2, padx=10, pady=1, sticky=tk.EW)
+erase_nodedb_button = tk.Button(root, text="Erase NodeDB", command=erase_nodedb)
+erase_nodedb_button.grid(row=3, column=2, padx=10, pady=1, sticky=tk.EW)
+
+erase_messagedb_button = tk.Button(root, text="Erase Message History", command=erase_messagedb)
+erase_messagedb_button.grid(row=4, column=2, padx=10, pady=1, sticky=tk.EW)
 
 ### INTERFACE WINDOW
 message_history = scrolledtext.ScrolledText(root, wrap=tk.WORD)
