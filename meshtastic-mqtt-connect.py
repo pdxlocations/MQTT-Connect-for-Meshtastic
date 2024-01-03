@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-Meshtastic MQTT Connect Version 0.1.3 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.1.4 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Decryption help from dstewartgo
@@ -37,8 +37,8 @@ mqtt_password = "large4cats"
 channel = "LongFast"
 key = "AQ=="
 
-node_number = 3126770193
-# node_number = 2900000000 + random.randint(0,99999)
+# node_number = 3126770193
+node_number = 2900000000 + random.randint(0,99999)
 
 node_name = '!' + hex(node_number)[2:]
 client_short_name = "MMC"
@@ -356,7 +356,6 @@ def update_node_list():
         db_connection.close()
 
 
-
 def insert_message_to_db(time, sender_short_name, text_payload, message_id):
     if debug: print("insert_message_to_db")
     try:
@@ -577,7 +576,6 @@ y = (hs/2) - (h/2)
 
 root.geometry("+%d+%d" %(x,y))
 # root.resizable(0,0)
-
 
 ### SERVER SETTINGS
 mqtt_broker_label = tk.Label(root, text="MQTT Broker:")
