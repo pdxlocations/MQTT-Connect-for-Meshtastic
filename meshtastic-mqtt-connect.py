@@ -387,7 +387,7 @@ def load_message_history_from_db():
 
         # Display each message in the message_history widget
         for message in messages:
-            the_message = f"{message[0]} {message[1]} {message[2]}\n"
+            the_message = f"{message[0]} {message[1]}: {message[2]}\n"
             message_history.insert(tk.END, the_message)
 
         message_history.config(state=tk.DISABLED)
