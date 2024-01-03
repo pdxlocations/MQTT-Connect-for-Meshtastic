@@ -36,7 +36,7 @@ mqtt_password = "large4cats"
 
 channel = "LongFast"
 key = "AQ=="
-
+# 
 # node_number = 3126770193
 node_number = 2900000000 + random.randint(0,99999)
 
@@ -252,7 +252,7 @@ def publish_message(destination_id):
 
 def send_node_info():
     if debug: print("send_node_info")
-    message =  current_time() + " Sending NodeInfo Packet"
+    message =  current_time() + " >>> Sending NodeInfo Packet"
     update_gui(message)
 
     global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
@@ -418,9 +418,9 @@ def erase_nodedb():
         nodeinfo_window.config(state=tk.NORMAL)
         nodeinfo_window.delete('1.0', tk.END)
         nodeinfo_window.config(state=tk.DISABLED)
-        update_gui("Database erased successfully.")
+        update_gui(current_time() + " >>> Node database erased successfully.")
     else:
-        update_gui("Database erase cancelled.")
+        update_gui(current_time() + " >>> Node database erase cancelled.")
 
 def erase_messagedb():
     if debug: print("erase_messagedb")
@@ -441,9 +441,9 @@ def erase_messagedb():
         message_history.config(state=tk.NORMAL)
         message_history.delete('1.0', tk.END)
         message_history.config(state=tk.DISABLED)
-        update_gui("Database erased successfully.")
+        update_gui(current_time() + " >>> Message history erased successfully.")
     else:
-        update_gui("Database erase cancelled.")
+        update_gui(current_time() + " >>> Message history erase cancelled.")
 
 
 def update_gui(text_payload, text_widget=None):
@@ -500,21 +500,21 @@ def connect_mqtt():
 
             client.username_pw_set(mqtt_username, mqtt_password)
             client.connect(mqtt_broker, mqtt_port, 60)
-            update_gui(f"Connecting to MQTT broker at {mqtt_broker}...")
+            update_gui(f"{current_time()} >>> Connecting to MQTT broker at {mqtt_broker}...")
 
         except Exception as e:
-            update_gui(f"Failed to connect to MQTT broker: {str(e)}")
+            update_gui(f"{current_time()} >>> Failed to connect to MQTT broker: {str(e)}")
 
         update_node_list()
     else:
-        update_gui(f"Already connected to {mqtt_broker}")
+        update_gui(f"{current_time()} >>> Already connected to {mqtt_broker}")
 
 
 def disconnect_mqtt():
     if debug: print("disconnect_mqtt")
     if client.is_connected():
         client.disconnect()
-        update_gui(f"{current_time()} Disconnected from MQTT broker")
+        update_gui(f"{current_time()} >>> Disconnected from MQTT broker")
         # Clear the display
         nodeinfo_window.config(state=tk.NORMAL)
         nodeinfo_window.delete('1.0', tk.END)
@@ -536,20 +536,20 @@ def on_connect(client, userdata, flags, rc):
         load_message_history_from_db()
         if debug: print(f"Subscribe Topic is: {subscribe_topic}")
         client.subscribe(subscribe_topic)
-        message = f"{current_time()} Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
+        message = f"{current_time()} >>> Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
 
         update_gui(message)
         send_node_info()
 
     else:
-        message = f"Failed to connect to MQTT broker with result code {str(rc)}"
+        message = f"{current_time()} >>> Failed to connect to MQTT broker with result code {str(rc)}"
         update_gui(message)
     
 
 def on_disconnect(client, userdata, rc):
     if debug: print("on_disconnect")
     if rc != 0:
-        message = f"Disconnected from MQTT broker with result code {str(rc)}"
+        message = f"{current_time()} >>> Disconnected from MQTT broker with result code {str(rc)}"
         update_gui(message)
 
 
