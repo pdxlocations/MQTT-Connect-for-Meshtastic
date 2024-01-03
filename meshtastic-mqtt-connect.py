@@ -577,7 +577,7 @@ disconnect_button.grid(row=1, column=2, padx=10, pady=1, sticky=tk.EW)
 node_info_button = tk.Button(root, text="Send NodeInfo", command=send_node_info)
 node_info_button.grid(row=2, column=2, padx=10, pady=1, sticky=tk.EW)
 
-erase_database_button = tk.Button(root, text="Erase Database", command=erase_database)
+erase_database_button = tk.Button(root, text="Erase NodeDB", command=erase_database)
 erase_database_button.grid(row=3, column=2, padx=10, pady=1, sticky=tk.EW)
 
 ### INTERFACE WINDOW
