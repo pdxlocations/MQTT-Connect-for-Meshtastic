@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-Meshtastic MQTT Connect Version 0.1.2 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.1.3 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Decryption help from dstewartgo
@@ -37,8 +37,8 @@ mqtt_password = "large4cats"
 channel = "LongFast"
 key = "AQ=="
 
-# node_number = 3126770193
-node_number = 2900000000 + random.randint(0,99999)
+node_number = 3126770193
+# node_number = 2900000000 + random.randint(0,99999)
 
 node_name = '!' + hex(node_number)[2:]
 client_short_name = "MMC"
@@ -480,6 +480,12 @@ root = tk.Tk()
 root.title("Meshtastic MQTT Connect")
 # root.geometry("1200x850")
 
+root.grid_rowconfigure(9, weight=1)
+root.grid_columnconfigure(1, weight=1)
+root.grid_columnconfigure(2, weight=1)
+root.grid_columnconfigure(3, weight=10)
+
+
 w = 1200 # ~width for the Tk root
 h = 900 # ~height for the Tk root
 
@@ -489,7 +495,7 @@ x = (ws/2) - (w/2)
 y = (hs/2) - (h/2)
 
 root.geometry("+%d+%d" %(x,y))
-root.resizable(0,0)
+# root.resizable(0,0)
 
 
 ### SERVER SETTINGS
@@ -575,8 +581,8 @@ erase_database_button = tk.Button(root, text="Erase Database", command=erase_dat
 erase_database_button.grid(row=3, column=2, padx=10, pady=2, sticky=tk.EW)
 
 ### INTERFACE WINDOW
-message_history = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=30)
-message_history.grid(row=9, column=0, columnspan=3, padx=10, pady=10)
+message_history = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+message_history.grid(row=9, column=0, columnspan=3, padx=10, pady=10, sticky=tk.NSEW)
 message_history.config(state=tk.DISABLED)
 
 ### MESSAGE ENTRY
@@ -601,8 +607,8 @@ dm_button.grid(row=13, column=2, padx=10, pady=15, sticky=tk.EW)
 
 
 ### NODE LIST
-nodeinfo_window = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=60, height=50)
-nodeinfo_window.grid(row=0, rowspan = 14, column=3, padx=10, pady=2, sticky=tk.NS)
+nodeinfo_window = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+nodeinfo_window.grid(row=0, rowspan = 14, column=3, padx=10, pady=2, sticky=tk.NSEW)
 nodeinfo_window.bind("<Enter>", on_nodeinfo_enter)
 nodeinfo_window.bind("<Leave>", on_nodeinfo_leave)
 nodeinfo_window.bind("<Button-1>", on_nodeinfo_click)
