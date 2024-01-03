@@ -500,85 +500,85 @@ root.geometry("+%d+%d" %(x,y))
 
 ### SERVER SETTINGS
 mqtt_broker_label = tk.Label(root, text="MQTT Broker:")
-mqtt_broker_label.grid(row=0, column=0, padx=10, pady=2, sticky=tk.W)
+mqtt_broker_label.grid(row=0, column=0, padx=10, pady=1, sticky=tk.W)
 
 mqtt_broker_entry = tk.Entry(root)
-mqtt_broker_entry.grid(row=0, column=1, padx=10, pady=2, sticky=tk.EW)
+mqtt_broker_entry.grid(row=0, column=1, padx=10, pady=1, sticky=tk.EW)
 mqtt_broker_entry.insert(0, mqtt_broker)
 
 
 mqtt_username_label = tk.Label(root, text="MQTT Username:")
-mqtt_username_label.grid(row=1, column=0, padx=10, pady=2, sticky=tk.W)
+mqtt_username_label.grid(row=1, column=0, padx=10, pady=1, sticky=tk.W)
 
 mqtt_username_entry = tk.Entry(root)
-mqtt_username_entry.grid(row=1, column=1, padx=10, pady=2, sticky=tk.EW)
+mqtt_username_entry.grid(row=1, column=1, padx=10, pady=1, sticky=tk.EW)
 mqtt_username_entry.insert(0, mqtt_username)
 
 
 mqtt_password_label = tk.Label(root, text="MQTT Password:")
-mqtt_password_label.grid(row=2, column=0, padx=10, pady=2, sticky=tk.W)
+mqtt_password_label.grid(row=2, column=0, padx=10, pady=1, sticky=tk.W)
 
 mqtt_password_entry = tk.Entry(root, show="*")
-mqtt_password_entry.grid(row=2, column=1, padx=10, pady=2, sticky=tk.EW)
+mqtt_password_entry.grid(row=2, column=1, padx=10, pady=1, sticky=tk.EW)
 mqtt_password_entry.insert(0, mqtt_password)
 
 
 channel_label = tk.Label(root, text="Channel:")
-channel_label.grid(row=3, column=0, padx=10, pady=2, sticky=tk.W)
+channel_label.grid(row=3, column=0, padx=10, pady=1, sticky=tk.W)
 
 channel_entry = tk.Entry(root)
-channel_entry.grid(row=3, column=1, padx=10, pady=2, sticky=tk.EW)
+channel_entry.grid(row=3, column=1, padx=10, pady=1, sticky=tk.EW)
 channel_entry.insert(0, channel)
 
 
 key_label = tk.Label(root, text="Key: (decrypt receive only)")
-key_label.grid(row=4, column=0, padx=10, pady=2, sticky=tk.W)
+key_label.grid(row=4, column=0, padx=10, pady=1, sticky=tk.W)
 
 key_entry = tk.Entry(root)
-key_entry.grid(row=4, column=1, padx=10, pady=2, sticky=tk.EW)
+key_entry.grid(row=4, column=1, padx=10, pady=1, sticky=tk.EW)
 key_entry.insert(0, key)
 
 
 
 node_number_label = tk.Label(root, text="Node Number:")
-node_number_label.grid(row=5, column=0, padx=10, pady=2, sticky=tk.W)
+node_number_label.grid(row=5, column=0, padx=10, pady=1, sticky=tk.W)
 
 node_number_entry = tk.Entry(root)
-node_number_entry.grid(row=5, column=1, padx=10, pady=2, sticky=tk.EW)
+node_number_entry.grid(row=5, column=1, padx=10, pady=1, sticky=tk.EW)
 node_number_entry.insert(0, node_number)
 
 
 separator_label = tk.Label(root, text="____________")
-separator_label.grid(row=6, column=0, padx=10, pady=2, sticky=tk.W)
+separator_label.grid(row=6, column=0, padx=10, pady=1, sticky=tk.W)
 
 
 long_name_label = tk.Label(root, text="Long Name:")
-long_name_label.grid(row=7, column=0, padx=10, pady=2, sticky=tk.W)
+long_name_label.grid(row=7, column=0, padx=10, pady=1, sticky=tk.W)
 
 long_name_entry = tk.Entry(root)
-long_name_entry.grid(row=7, column=1, padx=10, pady=2, sticky=tk.EW)
+long_name_entry.grid(row=7, column=1, padx=10, pady=1, sticky=tk.EW)
 long_name_entry.insert(0, client_long_name)
 
 
 short_name_label = tk.Label(root, text="Short Name:")
-short_name_label.grid(row=8, column=0, padx=10, pady=2, sticky=tk.W)
+short_name_label.grid(row=8, column=0, padx=10, pady=1, sticky=tk.W)
 
 short_name_entry = tk.Entry(root)
-short_name_entry.grid(row=8, column=1, padx=10, pady=2, sticky=tk.EW)
+short_name_entry.grid(row=8, column=1, padx=10, pady=1, sticky=tk.EW)
 short_name_entry.insert(0, client_short_name)
 
 ### BUTTONS
 connect_button = tk.Button(root, text="Connect", command=connect_mqtt)
-connect_button.grid(row=0, column=2, padx=10, pady=2, sticky=tk.EW)
+connect_button.grid(row=0, column=2, padx=10, pady=1, sticky=tk.EW)
 
 disconnect_button = tk.Button(root, text="Disconnect", command=disconnect_mqtt)
-disconnect_button.grid(row=1, column=2, padx=10, pady=2, sticky=tk.EW)
+disconnect_button.grid(row=1, column=2, padx=10, pady=1, sticky=tk.EW)
 
 node_info_button = tk.Button(root, text="Send NodeInfo", command=send_node_info)
-node_info_button.grid(row=2, column=2, padx=10, pady=2, sticky=tk.EW)
+node_info_button.grid(row=2, column=2, padx=10, pady=1, sticky=tk.EW)
 
 erase_database_button = tk.Button(root, text="Erase Database", command=erase_database)
-erase_database_button.grid(row=3, column=2, padx=10, pady=2, sticky=tk.EW)
+erase_database_button.grid(row=3, column=2, padx=10, pady=1, sticky=tk.EW)
 
 ### INTERFACE WINDOW
 message_history = scrolledtext.ScrolledText(root, wrap=tk.WORD)
@@ -587,17 +587,17 @@ message_history.config(state=tk.DISABLED)
 
 ### MESSAGE ENTRY
 enter_message_label = tk.Label(root, text="Enter message:")
-enter_message_label.grid(row=10, column=0, padx=10, pady=2, sticky=tk.W)
+enter_message_label.grid(row=10, column=0, padx=10, pady=1, sticky=tk.W)
 
 message_entry = tk.Entry(root)
-message_entry.grid(row=11, column=0, columnspan=3, padx=10, pady=2, sticky=tk.EW)
+message_entry.grid(row=11, column=0, columnspan=3, padx=10, pady=1, sticky=tk.EW)
 
 ### MESSAGE ACTION
 entry_dm_label = tk.Label(root, text="DM to (click a node):")
-entry_dm_label.grid(row=12, column=1, padx=10, pady=2, sticky=tk.E)
+entry_dm_label.grid(row=12, column=1, padx=10, pady=1, sticky=tk.E)
 
 entry_dm = tk.Entry(root)
-entry_dm.grid(row=12, column=2, padx=10, pady=2, sticky=tk.EW)
+entry_dm.grid(row=12, column=2, padx=10, pady=1, sticky=tk.EW)
 
 broadcast_button = tk.Button(root, text="Broadcast Message", command=lambda: publish_message(broadcast_id))
 broadcast_button.grid(row=13, column=0, padx=10, pady=15, sticky=tk.EW)
@@ -608,7 +608,7 @@ dm_button.grid(row=13, column=2, padx=10, pady=15, sticky=tk.EW)
 
 ### NODE LIST
 nodeinfo_window = scrolledtext.ScrolledText(root, wrap=tk.WORD)
-nodeinfo_window.grid(row=0, rowspan = 14, column=3, padx=10, pady=2, sticky=tk.NSEW)
+nodeinfo_window.grid(row=0, rowspan = 14, column=3, padx=10, pady=1, sticky=tk.NSEW)
 nodeinfo_window.bind("<Enter>", on_nodeinfo_enter)
 nodeinfo_window.bind("<Leave>", on_nodeinfo_leave)
 nodeinfo_window.bind("<Button-1>", on_nodeinfo_click)
