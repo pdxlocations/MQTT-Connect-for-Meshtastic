@@ -21,7 +21,6 @@ from base64 import b64encode, b64decode
 import base64
 import json
 
-
 debug = True
 
 tcl = tk.Tcl()
@@ -38,7 +37,7 @@ mqtt_password = "large4cats"
 
 channel = "LongFast"
 key = "AQ=="
-# 
+
 # node_number = 3126770193
 node_number = 2900000000 + random.randint(0,99999)
 
@@ -54,7 +53,6 @@ broadcast_id = 4294967295
 last_received_message = None
 db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
 PRESETS_FILE = "presets.json"
-
 
 class Preset:
     def __init__(self, name, broker, username, password, channel, key, node_number, long_name, short_name):
@@ -129,7 +127,6 @@ def load_preset():
         print(f"Error: Preset '{selected_preset_name}' not found.")
     
 
-    
 def update_preset_dropdown():
     # Update the preset dropdown menu
     preset_names = list(presets.keys())
@@ -148,17 +145,12 @@ def preset_var_changed(*args):
     print(f"Selected Option: {selected_option}")
 
 
-
-
-# Function to save the presets to a file
-# Function to save the presets to a file
 def save_presets_to_file():
     if debug: print("save_presets_to_file")
-
     with open(PRESETS_FILE, "w") as file:
         json.dump({name: preset.__dict__ for name, preset in presets.items()}, file, indent=2)
 
-# Function to load presets from a file
+
 def load_presets_from_file():
     if debug: print("load_presets_from_file")
     try:
@@ -178,7 +170,7 @@ def set_topic():
     publish_topic = "msh/2/c/" + channel + "/" + node_name
 
 
-### Create database table for NodeDB
+### Create database table for NodeDB & Messages
 def setup_db():
     if debug: print("setup_db")
     global db_connection
@@ -230,11 +222,9 @@ def on_message(client, userdata, msg):
             if key == "AQ==":
                 key_bytes = default_key
 
-
             cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
             decryptor = cipher.decryptor()
             decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
-
 
             # plain_text = decrypted_bytes.decrypt(getattr(mp, "encrypted"))
             data = mesh_pb2.Data()
@@ -277,7 +267,7 @@ def current_time():
     return(current_time_str)
 
 def process_message(mp, text_payload):
-    print("packet received")
+    if debug: print("process_message")
     global last_received_message
 
     if text_payload != last_received_message:
@@ -302,6 +292,8 @@ def process_message(mp, text_payload):
             "to": getattr(mp, "to")
         }
         print(text)
+    else:
+        if debug: print("duplicate message ignored")
 
 
 def get_short_name_by_id(user_id):
@@ -540,6 +532,7 @@ def erase_nodedb():
         update_gui(current_time() + " >>> Node database erased successfully.")
     else:
         update_gui(current_time() + " >>> Node database erase cancelled.")
+
 
 def erase_messagedb():
     if debug: print("erase_messagedb")
@@ -795,12 +788,6 @@ update_preset_dropdown()
 
 save_preset_button = tk.Button(root, text="Save Preset", command=save_preset)
 save_preset_button.grid(row=7, column=2, padx=10, pady=1, sticky=tk.EW)
-
-
-
-
-
-
 
 
 ### INTERFACE WINDOW
