@@ -50,9 +50,9 @@ node_info_interval_minutes = 15
 ### Program variables
 default_key = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01]) # AQ==
 broadcast_id = 4294967295
-last_received_message = None
 db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
 PRESETS_FILE = "presets.json"
+presets = {}
 
 class Preset:
     def __init__(self, name, broker, username, password, channel, key, node_number, long_name, short_name):
@@ -79,8 +79,12 @@ class Preset:
             'short_name': self.short_name
         }
     
-presets = {}
-# presets["Default"] = Preset("Default", "mqtt.meshtastic.org", "meshdev", "large4cats", "LongFast", "AQ==", 3126770193, "MQTTastic", "MMC")
+
+def current_time():
+    current_time_seconds = time.time()
+    current_time_struct = time.localtime(current_time_seconds)
+    current_time_str = time.strftime("%H:%M:%S", current_time_struct)
+    return(current_time_str)
 
 def save_preset():
     if debug: print("save_preset")
@@ -264,17 +268,31 @@ def on_message(client, userdata, msg):
     #     print (f"{env.temperature}, {env.relative_humidity}")
     #     print(env)
 
-def current_time():
-    current_time_seconds = time.time()
-    current_time_struct = time.localtime(current_time_seconds)
-    current_time_str = time.strftime("%H:%M:%S", current_time_struct)
-    return(current_time_str)
+
+# check for message id in db, ignore duplicates
+def message_exists(mp):
+    if debug: print("message_exists")
+    try:
+        db_connection = sqlite3.connect(db_file_path)
+        db_cursor = db_connection.cursor()
+
+        # Check if a record with the same message_id already exists
+        existing_record = db_cursor.execute('SELECT * FROM messages WHERE message_id=?', (str(getattr(mp, "id")),)).fetchone()
+
+        return existing_record is not None
+
+    except sqlite3.Error as e:
+        print(f"SQLite error in message_exists: {e}")
+
+    finally:
+        db_connection.close()
+
+
+
 
 def process_message(mp, text_payload):
     if debug: print("process_message")
-    global last_received_message
-
-    if text_payload != last_received_message:
+    if not message_exists(mp):
         sender_short_name = get_short_name_by_id(getattr(mp, "from"))
         if getattr(mp, "to") == node_number:
             string = f"{current_time()} DM from {sender_short_name}: {text_payload}"
@@ -288,7 +306,6 @@ def process_message(mp, text_payload):
         m_id = getattr(mp, "id")
         insert_message_to_db(current_time(), sender_short_name, text_payload, m_id)
 
-        last_received_message = text_payload
         text = {
             "message": text_payload,
             "from": getattr(mp, "from"),
