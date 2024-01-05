@@ -22,7 +22,8 @@ import base64
 import json
 
 debug = True
-color_text = False
+color_text = True
+do_encrypt=True
 
 tcl = tk.Tcl()
 print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
@@ -349,7 +350,22 @@ def direct_message(destination_id):
     destination_id = int(destination_id[1:], 16)
     publish_message(destination_id)
 
-do_encrypt=False
+def xor_hash(data):
+    result = 0
+    for char in data:
+        result ^= char
+    return result
+
+def generate_hash(name, key):
+    key_bytes = base64.b64decode(key.encode('utf-8'))
+    h_name = xor_hash(bytes(name, 'utf-8'))
+    h_key = xor_hash(key_bytes)
+    result = h_name ^ h_key
+
+    return result
+
+
+
 def publish_message(destination_id):
     if debug: print("publish_message")
 
@@ -368,15 +384,17 @@ def publish_message(destination_id):
         mesh_packet.id = random.getrandbits(32)
         mesh_packet.to = destination_id
         mesh_packet.want_ack = True
-        mesh_packet.channel = 0
+        mesh_packet.channel = generate_hash(channel, key)
         mesh_packet.hop_limit = 3
 
         if do_encrypt:
+            if debug: print("do_encrypt")
+
             if key == "AQ==":
                 key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
             else:
                 key_bytes = base64.b64decode(key.encode('ascii'))
-
+            print (f"id = { mesh_packet.id}")
             nonce_packet_id = mesh_packet.id.to_bytes(8, "little")
             nonce_from_node = node_number.to_bytes(8, "little")
             # Put both parts into a single byte array.
@@ -389,14 +407,12 @@ def publish_message(destination_id):
             mesh_packet.encrypted = encrypted_bytes
         else:
             mesh_packet.decoded.CopyFrom(encoded_message)
-            
 
         service_envelope = mqtt_pb2.ServiceEnvelope()
         service_envelope.packet.CopyFrom(mesh_packet)
         service_envelope.channel_id = channel
         service_envelope.gateway_id = node_name
 
-        # print (service_envelope)
         payload = service_envelope.SerializeToString()
         set_topic()
         if debug: print(f"Publish Topic is: {publish_topic}")
@@ -794,7 +810,7 @@ channel_entry.grid(row=3, column=1, padx=5, pady=1, sticky=tk.EW)
 channel_entry.insert(0, channel)
 
 
-key_label = tk.Label(message_log_frame, text="Key: (decrypt receive only)")
+key_label = tk.Label(message_log_frame, text="Key:")
 key_label.grid(row=4, column=0, padx=5, pady=1, sticky=tk.W)
 
 key_entry = tk.Entry(message_log_frame)
