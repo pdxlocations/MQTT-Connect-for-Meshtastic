@@ -141,9 +141,6 @@ def update_preset_dropdown():
         menu.add_command(label=preset_name, command=tk._setit(preset_var, preset_name, lambda *args: load_preset()))
 
 
-
-
-
 def preset_var_changed(*args):
     selected_option = preset_var.get()
     update_preset_dropdown()
@@ -366,31 +363,32 @@ def publish_message(destination_id):
         encoded_message.payload = message_text.encode("utf-8")
 
         mesh_packet = mesh_pb2.MeshPacket()
-        mesh_packet.decoded.CopyFrom(encoded_message)
 
         setattr(mesh_packet, "from", node_number)
         mesh_packet.id = random.getrandbits(32)
         mesh_packet.to = destination_id
         mesh_packet.want_ack = True
-        mesh_packet.channel = 8
+        mesh_packet.channel = 0
         mesh_packet.hop_limit = 3
 
         if do_encrypt:
-            key_bytes = base64.b64decode(key.encode('ascii'))
+            if key == "AQ==":
+                key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
+            else:
+                key_bytes = base64.b64decode(key.encode('ascii'))
 
             nonce_packet_id = mesh_packet.id.to_bytes(8, "little")
             nonce_from_node = node_number.to_bytes(8, "little")
             # Put both parts into a single byte array.
             nonce = nonce_packet_id + nonce_from_node
 
-            if key == "AQ==":
-                key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
-
             cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
             encryptor = cipher.encryptor()
             encrypted_bytes = encryptor.update(encoded_message.SerializeToString()) + encryptor.finalize()
 
             mesh_packet.encrypted = encrypted_bytes
+        else:
+            mesh_packet.decoded.CopyFrom(encoded_message)
             
 
         service_envelope = mqtt_pb2.ServiceEnvelope()
