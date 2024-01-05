@@ -22,6 +22,7 @@ import base64
 import json
 
 debug = True
+color_text = True
 
 tcl = tk.Tcl()
 print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
@@ -208,6 +209,7 @@ def on_message(client, userdata, msg):
     # if debug: print("on_message")
     se = mqtt_pb2.ServiceEnvelope()
     # print (f"message: {msg}")
+    is_encrypted = False
     try:
         se.ParseFromString(msg.payload)
         mp = se.packet
@@ -216,6 +218,7 @@ def on_message(client, userdata, msg):
         return
     
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
+        is_encrypted = True
         try:
             # Convert key to bytes
             key_bytes = base64.b64decode(key.encode('ascii'))
@@ -246,7 +249,7 @@ def on_message(client, userdata, msg):
 
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
         text_payload = mp.decoded.payload.decode("utf-8")
-        process_message(mp, text_payload)
+        process_message(mp, text_payload, is_encrypted)
         # print(f"{text_payload}")
         
 
@@ -290,7 +293,7 @@ def message_exists(mp):
 
 
 
-def process_message(mp, text_payload):
+def process_message(mp, text_payload, is_encrypted):
     if debug: print("process_message")
     if not message_exists(mp):
         sender_short_name = get_short_name_by_id(getattr(mp, "from"))
@@ -302,7 +305,11 @@ def process_message(mp, text_payload):
         else:    
             string = f"{current_time()} {sender_short_name}: {text_payload}"
 
-        update_gui(string, message_history)
+        if is_encrypted:
+            color="encrypted"
+        else:
+            color="unencrypted"
+        update_gui(string, text_widget=message_history, tag=color)
         m_id = getattr(mp, "id")
         insert_message_to_db(current_time(), sender_short_name, text_payload, m_id)
 
@@ -345,7 +352,7 @@ def direct_message(destination_id):
     destination_id = int(destination_id[1:], 16)
     publish_message(destination_id)
 
-
+do_encrypt=False
 def publish_message(destination_id):
     if debug: print("publish_message")
 
@@ -365,9 +372,26 @@ def publish_message(destination_id):
         mesh_packet.id = random.getrandbits(32)
         mesh_packet.to = destination_id
         mesh_packet.want_ack = True
-        # mesh_packet.want_ack = False
-        mesh_packet.channel = 0
+        mesh_packet.channel = 8
         mesh_packet.hop_limit = 3
+
+        if do_encrypt:
+            key_bytes = base64.b64decode(key.encode('ascii'))
+
+            nonce_packet_id = mesh_packet.id.to_bytes(8, "little")
+            nonce_from_node = node_number.to_bytes(8, "little")
+            # Put both parts into a single byte array.
+            nonce = nonce_packet_id + nonce_from_node
+
+            if key == "AQ==":
+                key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
+
+            cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
+            encryptor = cipher.encryptor()
+            encrypted_bytes = encryptor.update(encoded_message.SerializeToString()) + encryptor.finalize()
+
+            mesh_packet.encrypted = encrypted_bytes
+            
 
         service_envelope = mqtt_pb2.ServiceEnvelope()
         service_envelope.packet.CopyFrom(mesh_packet)
@@ -381,11 +405,10 @@ def publish_message(destination_id):
         client.publish(publish_topic, payload)
         message_entry.delete(0, tk.END)
 
-
 def send_node_info():
     if debug: print("send_node_info")
     message =  current_time() + " >>> Sending NodeInfo Packet"
-    update_gui(message)
+    update_gui(message, tag="info")
 
     global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
 
@@ -567,9 +590,9 @@ def erase_nodedb():
         nodeinfo_window.config(state=tk.NORMAL)
         nodeinfo_window.delete('1.0', tk.END)
         nodeinfo_window.config(state=tk.DISABLED)
-        update_gui(current_time() + " >>> Node database erased successfully.")
+        update_gui(current_time() + " >>> Node database erased successfully.", tag="info")
     else:
-        update_gui(current_time() + " >>> Node database erase cancelled.")
+        update_gui(current_time() + " >>> Node database erase cancelled.", tag="info")
 
 
 def erase_messagedb():
@@ -591,16 +614,16 @@ def erase_messagedb():
         message_history.config(state=tk.NORMAL)
         message_history.delete('1.0', tk.END)
         message_history.config(state=tk.DISABLED)
-        update_gui(current_time() + " >>> Message history erased successfully.")
+        update_gui(current_time() + " >>> Message history erased successfully.", tag="info")
     else:
-        update_gui(current_time() + " >>> Message history erase cancelled.")
+        update_gui(current_time() + " >>> Message history erase cancelled.", tag="info")
 
 
-def update_gui(text_payload, text_widget=None):
-    if debug: print(f"updating GUI with: {text_payload}")
+def update_gui(text_payload, tag=None, text_widget=None):
     text_widget = text_widget or message_history
+    if debug: print(f"updating GUI with: {text_payload}")
     text_widget.config(state=tk.NORMAL)
-    text_widget.insert(tk.END, f"{text_payload}\n")
+    text_widget.insert(tk.END, f"{text_payload}\n", tag)
     text_widget.config(state=tk.DISABLED)
     text_widget.yview(tk.END)
 
@@ -650,27 +673,27 @@ def connect_mqtt():
 
             client.username_pw_set(mqtt_username, mqtt_password)
             client.connect(mqtt_broker, mqtt_port, 60)
-            update_gui(f"{current_time()} >>> Connecting to MQTT broker at {mqtt_broker}...")
+            update_gui(f"{current_time()} >>> Connecting to MQTT broker at {mqtt_broker}...", tag="info")
 
         except Exception as e:
-            update_gui(f"{current_time()} >>> Failed to connect to MQTT broker: {str(e)}")
+            update_gui(f"{current_time()} >>> Failed to connect to MQTT broker: {str(e)}", tag="info")
 
         update_node_list()
     else:
-        update_gui(f"{current_time()} >>> Already connected to {mqtt_broker}")
+        update_gui(f"{current_time()} >>> Already connected to {mqtt_broker}", tag="info")
 
 
 def disconnect_mqtt():
     if debug: print("disconnect_mqtt")
     if client.is_connected():
         client.disconnect()
-        update_gui(f"{current_time()} >>> Disconnected from MQTT broker")
+        update_gui(f"{current_time()} >>> Disconnected from MQTT broker", tag="info")
         # Clear the display
         nodeinfo_window.config(state=tk.NORMAL)
         nodeinfo_window.delete('1.0', tk.END)
         nodeinfo_window.config(state=tk.DISABLED)
     else:
-        update_gui("Already disconnected")
+        update_gui("Already disconnected", tag="info")
 
 
 def on_connect(client, userdata, flags, rc):
@@ -687,20 +710,19 @@ def on_connect(client, userdata, flags, rc):
         if debug: print(f"Subscribe Topic is: {subscribe_topic}")
         client.subscribe(subscribe_topic)
         message = f"{current_time()} >>> Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
-
-        update_gui(message)
+        update_gui(message, tag="info")
         send_node_info()
 
     else:
         message = f"{current_time()} >>> Failed to connect to MQTT broker with result code {str(rc)}"
-        update_gui(message)
+        update_gui(message, tag="info")
     
 
 def on_disconnect(client, userdata, rc):
     if debug: print("on_disconnect")
     if rc != 0:
         message = f"{current_time()} >>> Disconnected from MQTT broker with result code {str(rc)}"
-        update_gui(message)
+        update_gui(message, tag="info")
 
 
 ############################
@@ -727,6 +749,7 @@ message_log_frame.grid_columnconfigure(1, weight=1)
 message_log_frame.grid_columnconfigure(2, weight=1)
 node_info_frame.grid_rowconfigure(0, weight=1)
 node_info_frame.grid_columnconfigure(0, weight=1)
+
 
 
 w = 1200 # ~width for the Tk root
@@ -845,6 +868,11 @@ save_preset_button.grid(row=7, column=2, padx=5, pady=1, sticky=tk.EW)
 message_history = scrolledtext.ScrolledText(message_log_frame, wrap=tk.WORD)
 message_history.grid(row=9, column=0, columnspan=3, padx=5, pady=10, sticky=tk.NSEW)
 message_history.config(state=tk.DISABLED)
+
+if color_text:
+    message_history.tag_config('dm', background='light goldenrod')
+    message_history.tag_config('encrypted', background='green')
+    message_history.tag_config('info', foreground='gray')
 
 ### MESSAGE ENTRY
 enter_message_label = tk.Label(message_log_frame, text="Enter message:")
