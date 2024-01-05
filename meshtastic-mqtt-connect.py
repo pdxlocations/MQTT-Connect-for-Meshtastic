@@ -22,7 +22,7 @@ import base64
 import json
 
 debug = True
-color_text = True
+color_text = False
 do_encrypt=True
 
 tcl = tk.Tcl()
