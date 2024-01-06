@@ -365,8 +365,8 @@ def publish_message(destination_id):
         mesh_packet.id = random.getrandbits(32)
         mesh_packet.to = destination_id
         mesh_packet.want_ack = True
-        mesh_packet.channel = generate_hash(channel, key)
         mesh_packet.hop_limit = 3
+        mesh_packet.channel = 0 # will get set to hash (or 8 for AQ==) below
 
         if key == "":
             do_encrypt = False
@@ -377,8 +377,10 @@ def publish_message(destination_id):
             if debug: print("do_encrypt")
 
             if key == "AQ==":
+                mesh_packet.channel = 8
                 key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
             else:
+                mesh_packet.channel = generate_hash(channel, key)
                 key_bytes = base64.b64decode(key.encode('ascii'))
             # print (f"id = {mesh_packet.id}")
             nonce_packet_id = mesh_packet.id.to_bytes(8, "little")
@@ -393,6 +395,7 @@ def publish_message(destination_id):
             mesh_packet.encrypted = encrypted_bytes
         else:
             mesh_packet.decoded.CopyFrom(encoded_message)
+            
 
         service_envelope = mqtt_pb2.ServiceEnvelope()
         service_envelope.packet.CopyFrom(mesh_packet)
@@ -781,12 +784,12 @@ node_info_frame.grid(row=0, column=1, padx=(0,5), pady=5, sticky=tk.NSEW)
 
 root.grid_rowconfigure(0, weight=1)
 root.grid_columnconfigure(0, weight=1)
-root.grid_columnconfigure(1, weight=3)
+# root.grid_columnconfigure(1, weight=3)
 message_log_frame.grid_rowconfigure(9, weight=1)
 message_log_frame.grid_columnconfigure(1, weight=1)
 message_log_frame.grid_columnconfigure(2, weight=1)
 node_info_frame.grid_rowconfigure(0, weight=1)
-node_info_frame.grid_columnconfigure(0, weight=1)
+# node_info_frame.grid_columnconfigure(0, weight=1)
 
 w = 1200 # ~width for the Tk root
 h = 900 # ~height for the Tk root
@@ -930,7 +933,7 @@ dm_button.grid(row=13, column=2, padx=5, pady=15, sticky=tk.EW)
 
 
 ### NODE LIST
-nodeinfo_window = scrolledtext.ScrolledText(node_info_frame, wrap=tk.WORD)
+nodeinfo_window = scrolledtext.ScrolledText(node_info_frame, wrap=tk.WORD, width=40)
 nodeinfo_window.grid(row=0, column=0, padx=5, pady=1, sticky=tk.NSEW, columnspan=1, rowspan=14)
 nodeinfo_window.bind("<Enter>", on_nodeinfo_enter)
 nodeinfo_window.bind("<Leave>", on_nodeinfo_leave)
