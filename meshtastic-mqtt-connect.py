@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-Meshtastic MQTT Connect Version 0.2.0 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.2.1 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Decryption help from dstewartgo
@@ -22,8 +22,8 @@ import base64
 import json
 
 debug = True
-color_text = True
-do_encrypt=True
+color_text = False
+do_encrypt = True
 
 tcl = tk.Tcl()
 print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
@@ -365,6 +365,11 @@ def publish_message(destination_id):
         mesh_packet.channel = generate_hash(channel, key)
         mesh_packet.hop_limit = 3
 
+        if key == "":
+            do_encrypt = False
+        else:
+            do_encrypt = True
+                
         if do_encrypt:
             if debug: print("do_encrypt")
 
