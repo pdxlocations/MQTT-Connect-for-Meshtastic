@@ -3,7 +3,9 @@
 Meshtastic MQTT Connect Version 0.2.1 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
-Decryption help from dstewartgo
+Encryption/Decryption help from: https://github.com/dstewartgo
+
+Powered by Meshtastic™ https://meshtastic.org/
 ''' 
 
 import tkinter as tk
@@ -23,7 +25,6 @@ import json
 
 debug = True
 color_text = False
-do_encrypt = True
 
 tcl = tk.Tcl()
 print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
@@ -62,6 +63,7 @@ presets = {}
 # Program Base Functions
     
 def set_topic():
+    if debug: print("set_topic")
     global subscribe_topic, publish_topic, node_number, node_name
     node_name = '!' + hex(node_number)[2:]
     subscribe_topic = "msh/2/c/" + channel + "/#"
@@ -72,7 +74,6 @@ def current_time():
     current_time_struct = time.localtime(current_time_seconds)
     current_time_str = time.strftime("%H:%M:%S", current_time_struct)
     return(current_time_str)
-
 
 def xor_hash(data):
     result = 0
@@ -86,7 +87,6 @@ def generate_hash(name, key):
     h_key = xor_hash(key_bytes)
     result = h_name ^ h_key
     return result
-
 
 def get_short_name_by_id(user_id):
     try:
@@ -233,31 +233,7 @@ def on_message(client, userdata, msg):
         return
     
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
-        is_encrypted = True
-        try:
-            # Convert key to bytes
-            key_bytes = base64.b64decode(key.encode('ascii'))
-
-            nonce_packet_id = getattr(mp, "id").to_bytes(8, "little")
-            nonce_from_node = getattr(mp, "from").to_bytes(8, "little")
-
-            # Put both parts into a single byte array.
-            nonce = nonce_packet_id + nonce_from_node
-
-            if key == "AQ==":
-                key_bytes = default_key
-
-            cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
-            decryptor = cipher.decryptor()
-            decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
-
-            data = mesh_pb2.Data()
-            data.ParseFromString(decrypted_bytes)
-            mp.decoded.CopyFrom(data)
-
-        except Exception as e:
-            print(f"*** Decryption failed: {str(e)}")
-            return
+        decode_encrypted(mp)
 
 
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
@@ -283,7 +259,34 @@ def on_message(client, userdata, msg):
     #     env.ParseFromString(mp.decoded.payload)
     #     print (f"{env.temperature}, {env.relative_humidity}")
     #     print(env)
+        
 
+def decode_encrypted(mp):
+        is_encrypted = True
+        try:
+            # Convert key to bytes
+            key_bytes = base64.b64decode(key.encode('ascii'))
+
+            nonce_packet_id = getattr(mp, "id").to_bytes(8, "little")
+            nonce_from_node = getattr(mp, "from").to_bytes(8, "little")
+
+            # Put both parts into a single byte array.
+            nonce = nonce_packet_id + nonce_from_node
+
+            if key == "AQ==":
+                key_bytes = default_key
+
+            cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
+            decryptor = cipher.decryptor()
+            decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
+
+            data = mesh_pb2.Data()
+            data.ParseFromString(decrypted_bytes)
+            mp.decoded.CopyFrom(data)
+
+        except Exception as e:
+            print(f"*** Decryption failed: {str(e)}")
+            return
 
 def process_message(mp, text_payload, is_encrypted):
     if debug: print("process_message")
@@ -369,7 +372,7 @@ def publish_message(destination_id):
             do_encrypt = False
         else:
             do_encrypt = True
-                
+
         if do_encrypt:
             if debug: print("do_encrypt")
 
@@ -377,7 +380,7 @@ def publish_message(destination_id):
                 key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
             else:
                 key_bytes = base64.b64decode(key.encode('ascii'))
-            print (f"id = { mesh_packet.id}")
+            # print (f"id = {mesh_packet.id}")
             nonce_packet_id = mesh_packet.id.to_bytes(8, "little")
             nonce_from_node = node_number.to_bytes(8, "little")
             # Put both parts into a single byte array.
@@ -443,7 +446,7 @@ def send_node_info():
     service_envelope.packet.CopyFrom(mesh_packet)
     service_envelope.channel_id = channel
     service_envelope.gateway_id = node_name
-    print (service_envelope)
+    # print (service_envelope)
 
     payload = service_envelope.SerializeToString()
     set_topic()
