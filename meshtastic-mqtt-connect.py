@@ -933,8 +933,8 @@ dm_button.grid(row=13, column=2, padx=5, pady=15, sticky=tk.EW)
 
 
 ### NODE LIST
-nodeinfo_window = scrolledtext.ScrolledText(node_info_frame, wrap=tk.WORD, width=40)
-nodeinfo_window.grid(row=0, column=0, padx=5, pady=1, sticky=tk.NSEW, columnspan=1, rowspan=14)
+nodeinfo_window = scrolledtext.ScrolledText(node_info_frame, wrap=tk.WORD, width=50)
+nodeinfo_window.grid(row=0, column=0, padx=5, pady=1, sticky=tk.NSEW)
 nodeinfo_window.bind("<Enter>", on_nodeinfo_enter)
 nodeinfo_window.bind("<Leave>", on_nodeinfo_leave)
 nodeinfo_window.bind("<Button-1>", on_nodeinfo_click)
