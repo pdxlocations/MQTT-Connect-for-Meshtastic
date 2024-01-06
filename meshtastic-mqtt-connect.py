@@ -22,7 +22,7 @@ import base64
 import json
 
 debug = True
-color_text = False
+color_text = True
 do_encrypt=True
 
 tcl = tk.Tcl()
@@ -49,13 +49,70 @@ client_long_name = "MQTTastic"
 client_hw_model = 255
 node_info_interval_minutes = 15
 
+#################################
 ### Program variables
+
 default_key = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01]) # AQ==
 broadcast_id = 4294967295
 db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
 PRESETS_FILE = "presets.json"
 presets = {}
 
+#################################
+# Program Base Functions
+    
+def set_topic():
+    global subscribe_topic, publish_topic, node_number, node_name
+    node_name = '!' + hex(node_number)[2:]
+    subscribe_topic = "msh/2/c/" + channel + "/#"
+    publish_topic = "msh/2/c/" + channel + "/" + node_name
+
+def current_time():
+    current_time_seconds = time.time()
+    current_time_struct = time.localtime(current_time_seconds)
+    current_time_str = time.strftime("%H:%M:%S", current_time_struct)
+    return(current_time_str)
+
+
+def xor_hash(data):
+    result = 0
+    for char in data:
+        result ^= char
+    return result
+
+def generate_hash(name, key):
+    key_bytes = base64.b64decode(key.encode('utf-8'))
+    h_name = xor_hash(bytes(name, 'utf-8'))
+    h_key = xor_hash(key_bytes)
+    result = h_name ^ h_key
+    return result
+
+
+def get_short_name_by_id(user_id):
+    try:
+        db_connection = sqlite3.connect(db_file_path)
+        db_cursor = db_connection.cursor()
+        
+        # Convert the user_id to hex and prepend '!'
+        hex_user_id = '!' + hex(user_id)[2:]
+
+        # Fetch the short name based on the hex user ID
+        result = db_cursor.execute('SELECT short_name FROM nodeinfo WHERE user_id=?', (hex_user_id,)).fetchone()
+
+        if result:
+            return result[0]
+        else:
+            return f"Unknown User ({hex_user_id})"
+    
+    except sqlite3.Error as e:
+        print(f"SQLite error in get_short_name_by_id: {e}")
+    
+    finally:
+        db_connection.close()
+
+#################################
+# Handle Presets
+    
 class Preset:
     def __init__(self, name, broker, username, password, channel, key, node_number, long_name, short_name):
         self.name = name
@@ -81,12 +138,6 @@ class Preset:
             'short_name': self.short_name
         }
     
-
-def current_time():
-    current_time_seconds = time.time()
-    current_time_struct = time.localtime(current_time_seconds)
-    current_time_str = time.strftime("%H:%M:%S", current_time_struct)
-    return(current_time_str)
 
 def save_preset():
     if debug: print("save_preset")
@@ -166,43 +217,9 @@ def load_presets_from_file():
 presets = load_presets_from_file()
 
 
-def set_topic():
-    global subscribe_topic, publish_topic, node_number, node_name
-    node_name = '!' + hex(node_number)[2:]
-    subscribe_topic = "msh/2/c/" + channel + "/#"
-    publish_topic = "msh/2/c/" + channel + "/" + node_name
-
-
-### Create database table for NodeDB & Messages
-def setup_db():
-    if debug: print("setup_db")
-    global db_connection
-    db_connection = sqlite3.connect(db_file_path)
-    db_cursor = db_connection.cursor()
-
-    # Create a table if it doesn't exist
-    db_cursor.execute('''
-        CREATE TABLE IF NOT EXISTS nodeinfo (
-            user_id TEXT,
-            long_name TEXT,
-            short_name TEXT
-        )
-    ''')
-
-    # Create a new table for storing messages
-    db_cursor.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            timestamp TEXT,
-            sender TEXT,
-            content TEXT,
-            message_id TEXT        
-        )
-    ''')
-
-    db_connection.commit()
-    db_connection.close()
-
-### Called when a new message is received on the MQTT topic
+#################################
+# Receive Messages
+    
 def on_message(client, userdata, msg):
     # if debug: print("on_message")
     se = mqtt_pb2.ServiceEnvelope()
@@ -227,7 +244,6 @@ def on_message(client, userdata, msg):
             # Put both parts into a single byte array.
             nonce = nonce_packet_id + nonce_from_node
 
-            # decrypt_cipher = AES.new(key_bytes, AES.MODE_CTR, nonce=nonce)
             if key == "AQ==":
                 key_bytes = default_key
 
@@ -235,7 +251,6 @@ def on_message(client, userdata, msg):
             decryptor = cipher.decryptor()
             decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
 
-            # plain_text = decrypted_bytes.decrypt(getattr(mp, "encrypted"))
             data = mesh_pb2.Data()
             data.ParseFromString(decrypted_bytes)
             mp.decoded.CopyFrom(data)
@@ -270,27 +285,6 @@ def on_message(client, userdata, msg):
     #     print(env)
 
 
-# check for message id in db, ignore duplicates
-def message_exists(mp):
-    if debug: print("message_exists")
-    try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
-
-        # Check if a record with the same message_id already exists
-        existing_record = db_cursor.execute('SELECT * FROM messages WHERE message_id=?', (str(getattr(mp, "id")),)).fetchone()
-
-        return existing_record is not None
-
-    except sqlite3.Error as e:
-        print(f"SQLite error in message_exists: {e}")
-
-    finally:
-        db_connection.close()
-
-
-
-
 def process_message(mp, text_payload, is_encrypted):
     if debug: print("process_message")
     if not message_exists(mp):
@@ -317,53 +311,37 @@ def process_message(mp, text_payload, is_encrypted):
             "id": getattr(mp, "id"),
             "to": getattr(mp, "to")
         }
-        print(text)
+        # print(text)
     else:
         if debug: print("duplicate message ignored")
 
-
-def get_short_name_by_id(user_id):
+# check for message id in db, ignore duplicates
+def message_exists(mp):
+    if debug: print("message_exists")
     try:
         db_connection = sqlite3.connect(db_file_path)
         db_cursor = db_connection.cursor()
-        
-        # Convert the user_id to hex and prepend '!'
-        hex_user_id = '!' + hex(user_id)[2:]
 
-        # Fetch the short name based on the hex user ID
-        result = db_cursor.execute('SELECT short_name FROM nodeinfo WHERE user_id=?', (hex_user_id,)).fetchone()
+        # Check if a record with the same message_id already exists
+        existing_record = db_cursor.execute('SELECT * FROM messages WHERE message_id=?', (str(getattr(mp, "id")),)).fetchone()
 
-        if result:
-            return result[0]
-        else:
-            return f"Unknown User ({hex_user_id})"
-    
+        return existing_record is not None
+
     except sqlite3.Error as e:
-        print(f"SQLite error in get_short_name_by_id: {e}")
-    
+        print(f"SQLite error in message_exists: {e}")
+
     finally:
         db_connection.close()
 
+
+
+#################################
+# Send Messages
 
 def direct_message(destination_id):
     if debug: print("direct_message")
     destination_id = int(destination_id[1:], 16)
     publish_message(destination_id)
-
-def xor_hash(data):
-    result = 0
-    for char in data:
-        result ^= char
-    return result
-
-def generate_hash(name, key):
-    key_bytes = base64.b64decode(key.encode('utf-8'))
-    h_name = xor_hash(bytes(name, 'utf-8'))
-    h_key = xor_hash(key_bytes)
-    result = h_name ^ h_key
-
-    return result
-
 
 
 def publish_message(destination_id):
@@ -419,6 +397,7 @@ def publish_message(destination_id):
         client.publish(publish_topic, payload)
         message_entry.delete(0, tk.END)
 
+
 def send_node_info():
     if debug: print("send_node_info")
     message =  current_time() + " >>> Sending NodeInfo Packet"
@@ -464,6 +443,39 @@ def send_node_info():
     payload = service_envelope.SerializeToString()
     set_topic()
     client.publish(publish_topic, payload)
+
+
+#################################
+# Database Handling
+        
+# Create database table for NodeDB & Messages
+def setup_db():
+    if debug: print("setup_db")
+    global db_connection
+    db_connection = sqlite3.connect(db_file_path)
+    db_cursor = db_connection.cursor()
+
+    # Create a table if it doesn't exist
+    db_cursor.execute('''
+        CREATE TABLE IF NOT EXISTS nodeinfo (
+            user_id TEXT,
+            long_name TEXT,
+            short_name TEXT
+        )
+    ''')
+
+    # Create a new table for storing messages
+    db_cursor.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            timestamp TEXT,
+            sender TEXT,
+            content TEXT,
+            message_id TEXT        
+        )
+    ''')
+
+    db_connection.commit()
+    db_connection.close()
 
 
 def maybe_store_nodeinfo_in_db(info):
@@ -516,32 +528,6 @@ def maybe_store_nodeinfo_in_db(info):
         db_connection.close()
 
 
-def update_node_list():
-    try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
-
-        # Fetch all nodes from the database
-        nodes = db_cursor.execute('SELECT user_id, long_name, short_name FROM nodeinfo').fetchall()
-
-        # Clear the display
-        nodeinfo_window.config(state=tk.NORMAL)
-        nodeinfo_window.delete('1.0', tk.END)
-
-        # Display each node in the nodeinfo_window widget
-        for node in nodes:
-            message = f"{node[0]}, {node[1]}, {node[2]}\n"
-            nodeinfo_window.insert(tk.END, message)
-
-        nodeinfo_window.config(state=tk.DISABLED)
-
-    except sqlite3.Error as e:
-        print(f"SQLite error in update_node_list: {e}")
-
-    finally:
-        db_connection.close()
-
-
 def insert_message_to_db(time, sender_short_name, text_payload, message_id):
     if debug: print("insert_message_to_db")
     try:
@@ -558,6 +544,7 @@ def insert_message_to_db(time, sender_short_name, text_payload, message_id):
 
     finally:
         db_connection.close()
+
 
 def load_message_history_from_db():
     if debug: print("load_message_history_from_db")
@@ -633,38 +620,9 @@ def erase_messagedb():
         update_gui(current_time() + " >>> Message history erase cancelled.", tag="info")
 
 
-def update_gui(text_payload, tag=None, text_widget=None):
-    text_widget = text_widget or message_history
-    if debug: print(f"updating GUI with: {text_payload}")
-    text_widget.config(state=tk.NORMAL)
-    text_widget.insert(tk.END, f"{text_payload}\n", tag)
-    text_widget.config(state=tk.DISABLED)
-    text_widget.yview(tk.END)
-
-
-def on_nodeinfo_enter(event):
-    # Change the cursor to a pointer when hovering over text
-    nodeinfo_window.config(cursor="cross")
-
-def on_nodeinfo_leave(event):
-    # Change the cursor back to the default when leaving the widget
-    nodeinfo_window.config(cursor="")
-
-def on_nodeinfo_click(event):
-    if debug: print("on_nodeinfo_click")
-    global to_id
-    # Get the index of the clicked position
-    index = nodeinfo_window.index(tk.CURRENT)
-
-    # Extract the user_id from the clicked line
-    clicked_line = nodeinfo_window.get(index + "linestart", index + "lineend")
-    to_id = clicked_line.split(",")[0].strip()
-
-    # Update the "to" variable with the clicked user_id
-    entry_dm.delete(0, tk.END)
-    entry_dm.insert(0, to_id)
-
-
+#################################
+# MQTT Server 
+    
 def connect_mqtt():
     if debug: print("connect_mqtt")
     global mqtt_broker, mqtt_username, mqtt_password, channel, node_number, db_file_path, key
@@ -740,8 +698,69 @@ def on_disconnect(client, userdata, rc):
 
 
 ############################
-# GUI setup
-        
+# GUI Functions
+
+def update_node_list():
+    try:
+        db_connection = sqlite3.connect(db_file_path)
+        db_cursor = db_connection.cursor()
+
+        # Fetch all nodes from the database
+        nodes = db_cursor.execute('SELECT user_id, long_name, short_name FROM nodeinfo').fetchall()
+
+        # Clear the display
+        nodeinfo_window.config(state=tk.NORMAL)
+        nodeinfo_window.delete('1.0', tk.END)
+
+        # Display each node in the nodeinfo_window widget
+        for node in nodes:
+            message = f"{node[0]}, {node[1]}, {node[2]}\n"
+            nodeinfo_window.insert(tk.END, message)
+
+        nodeinfo_window.config(state=tk.DISABLED)
+
+    except sqlite3.Error as e:
+        print(f"SQLite error in update_node_list: {e}")
+
+    finally:
+        db_connection.close()
+
+
+def update_gui(text_payload, tag=None, text_widget=None):
+    text_widget = text_widget or message_history
+    if debug: print(f"updating GUI with: {text_payload}")
+    text_widget.config(state=tk.NORMAL)
+    text_widget.insert(tk.END, f"{text_payload}\n", tag)
+    text_widget.config(state=tk.DISABLED)
+    text_widget.yview(tk.END)
+
+
+def on_nodeinfo_enter(event):
+    # Change the cursor to a pointer when hovering over text
+    nodeinfo_window.config(cursor="cross")
+
+def on_nodeinfo_leave(event):
+    # Change the cursor back to the default when leaving the widget
+    nodeinfo_window.config(cursor="")
+
+def on_nodeinfo_click(event):
+    if debug: print("on_nodeinfo_click")
+    global to_id
+    # Get the index of the clicked position
+    index = nodeinfo_window.index(tk.CURRENT)
+
+    # Extract the user_id from the clicked line
+    clicked_line = nodeinfo_window.get(index + "linestart", index + "lineend")
+    to_id = clicked_line.split(",")[0].strip()
+
+    # Update the "to" variable with the clicked user_id
+    entry_dm.delete(0, tk.END)
+    entry_dm.insert(0, to_id)
+
+
+############################
+# GUI Layout
+
 root = tk.Tk()
 root.title("Meshtastic MQTT Connect")
 # root.geometry("1200x850")
@@ -752,9 +771,6 @@ message_log_frame.grid(row=0, column=0, padx=(5,0), pady=5, sticky=tk.NSEW)
 node_info_frame = tk.Frame(root)
 node_info_frame.grid(row=0, column=1, padx=(0,5), pady=5, sticky=tk.NSEW)
 
-
-
-
 root.grid_rowconfigure(0, weight=1)
 root.grid_columnconfigure(0, weight=1)
 root.grid_columnconfigure(1, weight=3)
@@ -763,8 +779,6 @@ message_log_frame.grid_columnconfigure(1, weight=1)
 message_log_frame.grid_columnconfigure(2, weight=1)
 node_info_frame.grid_rowconfigure(0, weight=1)
 node_info_frame.grid_columnconfigure(0, weight=1)
-
-
 
 w = 1200 # ~width for the Tk root
 h = 900 # ~height for the Tk root
@@ -816,7 +830,6 @@ key_label.grid(row=4, column=0, padx=5, pady=1, sticky=tk.W)
 key_entry = tk.Entry(message_log_frame)
 key_entry.grid(row=4, column=1, padx=5, pady=1, sticky=tk.EW)
 key_entry.insert(0, key)
-
 
 
 node_number_label = tk.Label(message_log_frame, text="Node Number:")
@@ -919,6 +932,7 @@ nodeinfo_window.config(state=tk.DISABLED)
 
 
 ############################
+# Main Threads
 
 client = mqtt.Client(client_id="", clean_session=True, userdata=None)
 client.on_connect = on_connect
@@ -946,7 +960,6 @@ def send_node_info_periodically():
 
 node_info_timer = threading.Timer(node_info_interval_minutes * 60, send_node_info_periodically)
 node_info_timer.start()
-
 
 def on_exit():
     """Function to be called when the GUI is closed."""
