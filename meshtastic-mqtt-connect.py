@@ -82,7 +82,8 @@ def xor_hash(data):
     return result
 
 def generate_hash(name, key):
-    key_bytes = base64.b64decode(key.encode('utf-8'))
+    replaced_key = key.replace('-', '+').replace('_', '/')
+    key_bytes = base64.b64decode(replaced_key.encode('utf-8'))
     h_name = xor_hash(bytes(name, 'utf-8'))
     h_key = xor_hash(key_bytes)
     result = h_name ^ h_key
@@ -228,6 +229,7 @@ def on_message(client, userdata, msg):
     try:
         se.ParseFromString(msg.payload)
         mp = se.packet
+        # print (mp)
     except Exception as e:
         print(f"*** ParseFromString: {str(e)}")
         return
