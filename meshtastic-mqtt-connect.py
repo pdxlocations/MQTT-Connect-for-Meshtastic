@@ -868,32 +868,31 @@ short_name_entry.grid(row=8, column=1, padx=5, pady=1, sticky=tk.EW)
 short_name_entry.insert(0, client_short_name)
 
 ### BUTTONS
-connect_button = tk.Button(message_log_frame, text="Connect", command=connect_mqtt)
-connect_button.grid(row=0, column=2, padx=5, pady=1, sticky=tk.EW)
-
-disconnect_button = tk.Button(message_log_frame, text="Disconnect", command=disconnect_mqtt)
-disconnect_button.grid(row=1, column=2, padx=5, pady=1, sticky=tk.EW)
-
-node_info_button = tk.Button(message_log_frame, text="Send NodeInfo", command=send_node_info)
-node_info_button.grid(row=2, column=2, padx=5, pady=1, sticky=tk.EW)
-
-erase_nodedb_button = tk.Button(message_log_frame, text="Erase NodeDB", command=erase_nodedb)
-erase_nodedb_button.grid(row=3, column=2, padx=5, pady=1, sticky=tk.EW)
-
-erase_messagedb_button = tk.Button(message_log_frame, text="Erase Message History", command=erase_messagedb)
-erase_messagedb_button.grid(row=4, column=2, padx=5, pady=1, sticky=tk.EW)
-
 
 preset_label = tk.Label(message_log_frame, text="Select Preset:")
-preset_label.grid(row=5, column=2, padx=5, pady=1, sticky=tk.W)
-
+preset_label.grid(row=0, column=2, padx=5, pady=1, sticky=tk.W)
 
 preset_var = tk.StringVar(message_log_frame)
 preset_var.set("Select an option")
 preset_dropdown = tk.OptionMenu(message_log_frame, preset_var, "Default", *list(presets.keys()))
-preset_dropdown.grid(row=6, column=2, padx=5, pady=1, sticky=tk.EW)
+preset_dropdown.grid(row=1, column=2, padx=5, pady=1, sticky=tk.EW)
 preset_var.trace_add("write", lambda *args: update_preset_dropdown())
 update_preset_dropdown()
+
+connect_button = tk.Button(message_log_frame, text="Connect", command=connect_mqtt)
+connect_button.grid(row=2, column=2, padx=5, pady=1, sticky=tk.EW)
+
+disconnect_button = tk.Button(message_log_frame, text="Disconnect", command=disconnect_mqtt)
+disconnect_button.grid(row=3, column=2, padx=5, pady=1, sticky=tk.EW)
+
+node_info_button = tk.Button(message_log_frame, text="Send NodeInfo", command=send_node_info)
+node_info_button.grid(row=4, column=2, padx=5, pady=1, sticky=tk.EW)
+
+erase_nodedb_button = tk.Button(message_log_frame, text="Erase NodeDB", command=erase_nodedb)
+erase_nodedb_button.grid(row=5, column=2, padx=5, pady=1, sticky=tk.EW)
+
+erase_messagedb_button = tk.Button(message_log_frame, text="Erase Message History", command=erase_messagedb)
+erase_messagedb_button.grid(row=6, column=2, padx=5, pady=1, sticky=tk.EW)
 
 save_preset_button = tk.Button(message_log_frame, text="Save Preset", command=save_preset)
 save_preset_button.grid(row=7, column=2, padx=5, pady=1, sticky=tk.EW)
