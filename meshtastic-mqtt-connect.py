@@ -24,7 +24,9 @@ import base64
 import json
 
 debug = True
+print_message_packet = False
 color_text = False
+display_encrypted = True
 
 tcl = tk.Tcl()
 print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
@@ -229,13 +231,15 @@ def on_message(client, userdata, msg):
     try:
         se.ParseFromString(msg.payload)
         mp = se.packet
-        # print (mp)
+        if print_message_packet: print(mp)
     except Exception as e:
         print(f"*** ParseFromString: {str(e)}")
         return
     
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
         decode_encrypted(mp)
+        is_encrypted=True
+
 
 
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
@@ -243,7 +247,6 @@ def on_message(client, userdata, msg):
         process_message(mp, text_payload, is_encrypted)
         # print(f"{text_payload}")
         
-
     elif mp.decoded.portnum == portnums_pb2.NODEINFO_APP:
         info = mesh_pb2.User()
         info.ParseFromString(mp.decoded.payload)
@@ -264,7 +267,7 @@ def on_message(client, userdata, msg):
         
 
 def decode_encrypted(mp):
-        is_encrypted = True
+        
         try:
             # Convert key to bytes
             key_bytes = base64.b64decode(key.encode('ascii'))
@@ -287,6 +290,9 @@ def decode_encrypted(mp):
             mp.decoded.CopyFrom(data)
 
         except Exception as e:
+
+            if print_message_packet: print(mp)
+
             print(f"*** Decryption failed: {str(e)}")
             return
 
@@ -302,10 +308,15 @@ def process_message(mp, text_payload, is_encrypted):
         else:    
             string = f"{current_time()} {sender_short_name}: {text_payload}"
 
+        key_icon = "\U0001F511"
+        lock_icon = "\U0001F512" 
+
         if is_encrypted:
             color="encrypted"
+            if display_encrypted: string =  string[:8] + lock_icon + string[8:]
         else:
             color="unencrypted"
+
         update_gui(string, text_widget=message_history, tag=color)
         m_id = getattr(mp, "id")
         insert_message_to_db(current_time(), sender_short_name, text_payload, m_id)
@@ -878,7 +889,7 @@ preset_label = tk.Label(message_log_frame, text="Select Preset:")
 preset_label.grid(row=0, column=2, padx=5, pady=1, sticky=tk.W)
 
 preset_var = tk.StringVar(message_log_frame)
-preset_var.set("Select an option")
+preset_var.set("None")
 preset_dropdown = tk.OptionMenu(message_log_frame, preset_var, "Default", *list(presets.keys()))
 preset_dropdown.grid(row=1, column=2, padx=5, pady=1, sticky=tk.EW)
 preset_var.trace_add("write", lambda *args: update_preset_dropdown())
