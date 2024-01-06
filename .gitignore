@@ -1,3 +1,4 @@
 *.db
 .DS_Store
 presets.json
+presets copy.json
