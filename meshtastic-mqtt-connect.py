@@ -478,7 +478,8 @@ def send_node_info():
     encoded_message = mesh_pb2.Data()
     encoded_message.portnum = portnums_pb2.NODEINFO_APP
     encoded_message.payload = user_payload
-
+    encoded_message.want_response = True  # Request NodeInfo back
+    
     mesh_packet = mesh_pb2.MeshPacket()
     mesh_packet.decoded.CopyFrom(encoded_message)
 
