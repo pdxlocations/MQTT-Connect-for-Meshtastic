@@ -234,8 +234,7 @@ presets = load_presets_from_file()
     
 def on_message(client, userdata, msg):
     # if debug: print("on_message")
-    if print_service_envelope: se = mqtt_pb2.ServiceEnvelope()
-
+    se = mqtt_pb2.ServiceEnvelope()
     is_encrypted = False
     try:
         se.ParseFromString(msg.payload)
