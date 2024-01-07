@@ -16,7 +16,6 @@ This is a bug with TCL Version 8.6.12 and is apparently fixed in 8.6.13
 
 - Encryption and decryption is supported
 
-
-<img width="1318" alt="Screenshot 2023-12-30 at 10 53 03 AM" src="https://github.com/pdxlocations/Meshtastic-MQTT-Connect/assets/117498748/1914d86d-39e7-46de-99e5-038fdbf4e54c">
+<img width="1054" alt="Screenshot 2024-01-07 at 9 07 33 AM" src="https://github.com/pdxlocations/Meshtastic-MQTT-Connect/assets/117498748/7643a0f4-b77f-4063-b287-f6ca99a2b1fc">
 
 ![Alt](https://repobeats.axiom.co/api/embed/dbe69ee806d8db9d81e8342b70ef83fe1df87b8e.svg "Repobeats analytics image")
