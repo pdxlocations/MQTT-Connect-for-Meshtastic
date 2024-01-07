@@ -313,6 +313,7 @@ def process_message(mp, text_payload, is_encrypted):
         elif getattr(mp, "from") == node_number and getattr(mp, "to") != broadcast_id:
             receiver_short_name = get_short_name_by_id(getattr(mp, "to"))
             string = f"{current_time()} DM to {receiver_short_name}: {text_payload}"
+            if display_dm: string =  string[:9] + dm_emoji + string[9:]
         else:    
             string = f"{current_time()} {sender_short_name}: {text_payload}"
 
