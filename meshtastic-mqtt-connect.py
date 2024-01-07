@@ -31,7 +31,8 @@ print_node_info =  False
 print_failed_encryption_packet = True
 color_text = False
 display_encrypted = True
-display_dm = True
+display_dm_emoji = True
+display_private_dms = False
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
@@ -116,6 +117,9 @@ def get_short_name_by_id(user_id):
         if result:
             return result[0]
         else:
+            ## TODO request nodeinfo by DM and try again
+            if user_id != broadcast_id:
+                send_node_info()
             return f"Unknown User ({hex_user_id})"
     
     except sqlite3.Error as e:
@@ -316,23 +320,38 @@ def decode_encrypted(mp):
 def process_message(mp, text_payload, is_encrypted):
     if debug: print("process_message")
     if not message_exists(mp):
-        sender_short_name = get_short_name_by_id(getattr(mp, "from"))
-        if getattr(mp, "to") == node_number:
+        from_node = getattr(mp, "from")
+        to_node = getattr(mp, "to")
+        sender_short_name = get_short_name_by_id(from_node)
+        receiver_short_name = get_short_name_by_id(to_node)
+        string = ""
+        private_dm = False
+
+        if to_node == node_number:
             string = f"{current_time()} DM from {sender_short_name}: {text_payload}"
-            if display_dm: string =  string[:9] + dm_emoji + string[9:]
-        elif getattr(mp, "from") == node_number and getattr(mp, "to") != broadcast_id:
-            receiver_short_name = get_short_name_by_id(getattr(mp, "to"))
+            if display_dm_emoji: string = string[:9] + dm_emoji + string[9:]
+
+        elif from_node == node_number and to_node != broadcast_id:
             string = f"{current_time()} DM to {receiver_short_name}: {text_payload}"
+            
+        elif from_node != node_number and to_node != broadcast_id:
+            if display_private_dms:
+                string = f"{current_time()} DM from {sender_short_name} to {receiver_short_name}: {text_payload}"
+                if display_dm_emoji: string = string[:9] + dm_emoji + string[9:]
+            else:
+                if debug: print("Private DM Ignored")
+                private_dm = True
+            
         else:    
             string = f"{current_time()} {sender_short_name}: {text_payload}"
 
-        if is_encrypted:
+        if is_encrypted and not private_dm:
             color="encrypted"
-            if display_encrypted: string =  string[:9] + encrypted_emoji + string[9:]
+            if display_encrypted: string = string[:9] + encrypted_emoji + string[9:]
         else:
             color="unencrypted"
-
-        update_gui(string, text_widget=message_history, tag=color)
+        if not private_dm:
+            update_gui(string, text_widget=message_history, tag=color)
         m_id = getattr(mp, "id")
         insert_message_to_db(current_time(), sender_short_name, text_payload, m_id)
 
