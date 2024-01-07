@@ -19,14 +19,15 @@ import time
 import tkinter.messagebox
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-from base64 import b64encode, b64decode
+# from base64 import b64encode, b64decode
 import base64
 import json
 
 debug = True
-print_message_packet = False
+print_message_packet = True
 color_text = False
 display_encrypted = True
+print_text_message = True
 
 tcl = tk.Tcl()
 print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
@@ -43,6 +44,7 @@ mqtt_password = "large4cats"
 channel = "LongFast"
 key = "AQ=="
 
+
 # node_number = 3126770193
 node_number = 2900000000 + random.randint(0,99999)
 
@@ -55,6 +57,7 @@ node_info_interval_minutes = 15
 #################################
 ### Program variables
 
+## 1PG7OiApB1nwvP+rz05pAQ==
 default_key = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01]) # AQ==
 broadcast_id = 4294967295
 db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
@@ -327,7 +330,7 @@ def process_message(mp, text_payload, is_encrypted):
             "id": getattr(mp, "id"),
             "to": getattr(mp, "to")
         }
-        # print(text)
+        if print_text_message: print(text)
     else:
         if debug: print("duplicate message ignored")
 
@@ -361,6 +364,7 @@ def direct_message(destination_id):
 
 
 def publish_message(destination_id):
+    global key
     if debug: print("publish_message")
 
     if not client.is_connected():
@@ -383,18 +387,17 @@ def publish_message(destination_id):
 
         if key == "":
             do_encrypt = False
+            if debug: print("key is none")
         else:
             do_encrypt = True
-
+            if debug: print("key present")
+    
         if do_encrypt:
             if debug: print("do_encrypt")
 
-            if key == "AQ==":
-                mesh_packet.channel = 8
-                key_bytes = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01])
-            else:
-                mesh_packet.channel = generate_hash(channel, key)
-                key_bytes = base64.b64decode(key.encode('ascii'))
+            mesh_packet.channel = generate_hash(channel, key)
+            key_bytes = base64.b64decode(key.encode('ascii'))
+
             # print (f"id = {mesh_packet.id}")
             nonce_packet_id = mesh_packet.id.to_bytes(8, "little")
             nonce_from_node = node_number.to_bytes(8, "little")
@@ -657,12 +660,18 @@ def connect_mqtt():
             mqtt_password = mqtt_password_entry.get()
             channel = channel_entry.get()
             key = key_entry.get()
+
+            if key == "AQ==":
+                if debug: print("key is default, expanding to AES128")
+                key = "1PG7OiApB1nwvP+rz05pAQ=="
+
             node_number = int(node_number_entry.get())  # Convert the input to an integer
 
             padded_key = key.ljust(len(key) + ((4 - (len(key) % 4)) % 4), '=')
-            print (padded_key)
             replaced_key = padded_key.replace('-', '+').replace('_', '/')
             key = replaced_key
+
+            if debug: print (f"padded & replaced key = {key}")
 
             db_file_path = mqtt_broker + "_" + channel + ".db"
             setup_db()
