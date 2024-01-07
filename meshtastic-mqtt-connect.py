@@ -19,19 +19,21 @@ import time
 import tkinter.messagebox
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-# from base64 import b64encode, b64decode
 import base64
 import json
 
+#### Debug Options
 debug = True
 print_service_envelope = False
 print_message_packet = False
 print_text_message = False
 print_node_info =  False
+print_failed_encryption_packet = True
 color_text = False
 display_encrypted = True
 display_dm = True
 
+### tcl upstream bug warning
 tcl = tk.Tcl()
 print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
 print("If < version 8.6.13, mouse clicks will only be recognized when the mouse is moving")    
@@ -64,7 +66,7 @@ node_info_interval_minutes = 15
 ### Program variables
 
 ## 1PG7OiApB1nwvP+rz05pAQ==
-default_key = bytes([0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01]) # AQ==
+default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
 broadcast_id = 4294967295
 db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
 PRESETS_FILE = "presets.json"
@@ -238,9 +240,10 @@ def on_message(client, userdata, msg):
     is_encrypted = False
     try:
         se.ParseFromString(msg.payload)
-        print ("")
-        print ("Service Envelope:")
-        print (se)
+        if print_service_envelope:
+            print ("")
+            print ("Service Envelope:")
+            print (se)
         mp = se.packet
         if print_message_packet: 
             print ("")
@@ -287,30 +290,17 @@ def decode_encrypted(mp):
         
         try:
             # Convert key to bytes
-            # key_bytes = base64.b64decode(key.encode('ascii'))
-            keys_to_try = [
-                base64.b64decode(key.encode('ascii')),
-                default_key
-            ]
-
+            key_bytes = base64.b64decode(key.encode('ascii'))
+      
             nonce_packet_id = getattr(mp, "id").to_bytes(8, "little")
             nonce_from_node = getattr(mp, "from").to_bytes(8, "little")
 
             # Put both parts into a single byte array.
             nonce = nonce_packet_id + nonce_from_node
 
-            # if key == "AQ==":
-            #     key_bytes = default_key
-
-            for key_bytes in keys_to_try:
-                try:
-                    cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
-                    decryptor = cipher.decryptor()
-                    decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
-                    break
-                except Exception as e:
-                    if debug: print(f"Decryption attempt failed with key: {key_bytes}, error: {str(e)}")
-
+            cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
+            decryptor = cipher.decryptor()
+            decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
 
             data = mesh_pb2.Data()
             data.ParseFromString(decrypted_bytes)
