@@ -16,6 +16,8 @@ import random
 import threading
 import sqlite3
 import time
+from datetime import datetime
+from time import mktime
 import tkinter.messagebox
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
@@ -273,11 +275,10 @@ def on_message(client, userdata, msg):
             print("NodeInfo:")
             print(info)
         
-    # elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
-    #     pos = mesh_pb2.Position()
-    #     pos.ParseFromString(mp.decoded.payload)
-    #     print(getattr(mp, "from"))
-    #     print(pos)
+    elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
+        pos = mesh_pb2.Position()
+        pos.ParseFromString(mp.decoded.payload)
+        maybe_store_position_in_db(getattr(mp, "from"), pos)
 
     # elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
     #     env = telemetry_pb2.EnvironmentMetrics()
@@ -552,6 +553,17 @@ def setup_db():
         )
     ''')
 
+    # Create a new table for storing positions
+    db_cursor.execute('''
+        CREATE TABLE IF NOT EXISTS positions (
+            node_id TEXT,
+            short_name TEXT,      
+            timestamp TEXT,
+            latitude REAL,
+            longitude REAL
+        )
+    ''')
+
     db_connection.commit()
     db_connection.close()
 
@@ -604,6 +616,51 @@ def maybe_store_nodeinfo_in_db(info):
 
     finally:
         db_connection.close()
+
+
+def maybe_store_position_in_db(node_id, position):
+    if debug:
+        print(f"Position report for: {get_short_name_by_id(node_id)}")
+        print(position)
+
+    # Must have at least a lat/lon
+    if position.latitude_i != 0 and position.longitude_i != 0:
+        # Convert from integer lat/lon format to decimal format.
+        latitude = position.latitude_i * 1e-7
+        longitude = position.longitude_i * 1e-7
+
+        # Get the best timestamp we can, starting with local time.
+        timestamp = time.gmtime()
+        # Then, try the timestamp from the position protobuf.
+        if position.timestamp > 0:
+             timestamp = time.gmtime(position.timestamp)
+        # Then, try the time from the position protobuf.
+        if position.time > 0:
+             timestamp = time.gmtime(position.time)
+        # Convert timestamp to datetime for database use
+        timestamp = datetime.fromtimestamp(mktime(timestamp))
+
+        try:
+            db_connection = sqlite3.connect(db_file_path)
+            db_cursor = db_connection.cursor()
+
+            # Check for an existing entry for the timestamp; this indicates a position that has bounced around the mesh.
+            existing_record = db_cursor.execute('SELECT * FROM positions WHERE node_id=? AND timestamp=?', (node_id,timestamp)).fetchone()
+            if existing_record is not None:
+                if debug: print("Rejecting duplicate position record")
+                return
+
+            db_cursor.execute('''
+                INSERT INTO positions (node_id, short_name, timestamp, latitude, longitude)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (node_id, get_short_name_by_id(node_id), timestamp, latitude, longitude))
+            db_connection.commit()
+
+        except sqlite3.Error as e:
+            print(f"SQLite error in maybe_store_position_in_db: {e}")
+
+        finally:
+            db_connection.close()
 
 
 def insert_message_to_db(time, sender_short_name, text_payload, message_id):
