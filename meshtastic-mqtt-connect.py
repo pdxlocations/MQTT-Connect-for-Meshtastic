@@ -27,6 +27,7 @@ debug = True
 print_message_packet = True
 color_text = False
 display_encrypted = True
+display_dm = True
 print_text_message = True
 
 tcl = tk.Tcl()
@@ -44,6 +45,9 @@ mqtt_password = "large4cats"
 channel = "LongFast"
 key = "AQ=="
 
+key_emoji = "\U0001F511"
+encrypted_emoji = "\U0001F512" 
+dm_emoji = "\u2192"
 
 # node_number = 3126770193
 node_number = 2900000000 + random.randint(0,99999)
@@ -305,18 +309,16 @@ def process_message(mp, text_payload, is_encrypted):
         sender_short_name = get_short_name_by_id(getattr(mp, "from"))
         if getattr(mp, "to") == node_number:
             string = f"{current_time()} DM from {sender_short_name}: {text_payload}"
+            if display_dm: string =  string[:9] + dm_emoji + string[9:]
         elif getattr(mp, "from") == node_number and getattr(mp, "to") != broadcast_id:
             receiver_short_name = get_short_name_by_id(getattr(mp, "to"))
             string = f"{current_time()} DM to {receiver_short_name}: {text_payload}"
         else:    
             string = f"{current_time()} {sender_short_name}: {text_payload}"
 
-        key_icon = "\U0001F511"
-        lock_icon = "\U0001F512" 
-
         if is_encrypted:
             color="encrypted"
-            if display_encrypted: string =  string[:8] + lock_icon + string[8:]
+            if display_encrypted: string =  string[:9] + encrypted_emoji + string[9:]
         else:
             color="unencrypted"
 
