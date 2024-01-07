@@ -393,26 +393,10 @@ def publish_message(destination_id):
             if debug: print("key present")
     
         if do_encrypt:
-            if debug: print("do_encrypt")
-
-            mesh_packet.channel = generate_hash(channel, key)
-            key_bytes = base64.b64decode(key.encode('ascii'))
-
-            # print (f"id = {mesh_packet.id}")
-            nonce_packet_id = mesh_packet.id.to_bytes(8, "little")
-            nonce_from_node = node_number.to_bytes(8, "little")
-            # Put both parts into a single byte array.
-            nonce = nonce_packet_id + nonce_from_node
-
-            cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
-            encryptor = cipher.encryptor()
-            encrypted_bytes = encryptor.update(encoded_message.SerializeToString()) + encryptor.finalize()
-
-            mesh_packet.encrypted = encrypted_bytes
+            mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
         else:
             mesh_packet.decoded.CopyFrom(encoded_message)
             
-
         service_envelope = mqtt_pb2.ServiceEnvelope()
         service_envelope.packet.CopyFrom(mesh_packet)
         service_envelope.channel_id = channel
@@ -423,6 +407,25 @@ def publish_message(destination_id):
         if debug: print(f"Publish Topic is: {publish_topic}")
         client.publish(publish_topic, payload)
         message_entry.delete(0, tk.END)
+
+
+def encrypt_message(channel, key, mesh_packet, encoded_message):
+    if debug: print("encrypt_message")
+
+    mesh_packet.channel = generate_hash(channel, key)
+    key_bytes = base64.b64decode(key.encode('ascii'))
+
+    # print (f"id = {mesh_packet.id}")
+    nonce_packet_id = mesh_packet.id.to_bytes(8, "little")
+    nonce_from_node = node_number.to_bytes(8, "little")
+    # Put both parts into a single byte array.
+    nonce = nonce_packet_id + nonce_from_node
+
+    cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
+    encryptor = cipher.encryptor()
+    encrypted_bytes = encryptor.update(encoded_message.SerializeToString()) + encryptor.finalize()
+
+    return encrypted_bytes
 
 
 def send_node_info():
@@ -470,6 +473,39 @@ def send_node_info():
     payload = service_envelope.SerializeToString()
     set_topic()
     client.publish(publish_topic, payload)
+
+
+def send_ack():
+    ## TODO
+    '''
+    meshtastic_MeshPacket *p = router->allocForSending();
+    p->decoded.portnum = meshtastic_PortNum_ROUTING_APP;
+    p->decoded.payload.size =
+        pb_encode_to_bytes(p->decoded.payload.bytes, sizeof(p->decoded.payload.bytes), &meshtastic_Routing_msg, &c);
+
+    p->priority = meshtastic_MeshPacket_Priority_ACK;
+
+    p->hop_limit = config.lora.hop_limit; // Flood ACK back to original sender
+    p->to = to;
+    p->decoded.request_id = idFrom;
+    p->channel = chIndex;
+    
+    /* Ack/naks are sent with very high priority to ensure that retransmission
+    stops as soon as possible */
+    meshtastic_MeshPacket_Priority_ACK = 120,
+
+    /* This packet is being sent as a reliable message, we would prefer it to arrive at the destination.
+    We would like to receive a ack packet in response.
+    Broadcasts messages treat this flag specially: Since acks for broadcasts would
+    rapidly flood the channel, the normal ack behavior is suppressed.
+    Instead, the original sender listens to see if at least one node is rebroadcasting this packet (because naive flooding algorithm).
+    If it hears that the odds (given typical LoRa topologies) the odds are very high that every node should eventually receive the message.
+    So FloodingRouter.cpp generates an implicit ack which is delivered to the original sender.
+    If after some time we don't hear anyone rebroadcast our packet, we will timeout and retransmit, using the regular resend logic.
+    Note: This flag is normally sent in a flag bit in the header when sent over the wire */
+    bool want_ack;
+
+    '''
 
 
 #################################
