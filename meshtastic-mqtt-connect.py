@@ -24,10 +24,10 @@ import base64
 import json
 
 debug = True
-print_service_envolope = True
-print_message_packet = True
-print_text_message = True
-print_node_info =  True
+print_service_envelope = False
+print_message_packet = False
+print_text_message = False
+print_node_info =  False
 color_text = False
 display_encrypted = True
 display_dm = True
@@ -234,7 +234,7 @@ presets = load_presets_from_file()
     
 def on_message(client, userdata, msg):
     # if debug: print("on_message")
-    if print_service_envolope: se = mqtt_pb2.ServiceEnvelope()
+    if print_service_envelope: se = mqtt_pb2.ServiceEnvelope()
 
     is_encrypted = False
     try:
@@ -479,7 +479,7 @@ def send_node_info():
     encoded_message.portnum = portnums_pb2.NODEINFO_APP
     encoded_message.payload = user_payload
     encoded_message.want_response = True  # Request NodeInfo back
-    
+
     mesh_packet = mesh_pb2.MeshPacket()
     mesh_packet.decoded.CopyFrom(encoded_message)
 
