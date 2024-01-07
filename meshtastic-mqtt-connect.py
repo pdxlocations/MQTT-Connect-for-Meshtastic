@@ -24,11 +24,13 @@ import base64
 import json
 
 debug = True
+print_service_envolope = True
 print_message_packet = True
+print_text_message = True
+print_node_info =  True
 color_text = False
 display_encrypted = True
 display_dm = True
-print_text_message = True
 
 tcl = tk.Tcl()
 print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
@@ -232,13 +234,19 @@ presets = load_presets_from_file()
     
 def on_message(client, userdata, msg):
     # if debug: print("on_message")
-    se = mqtt_pb2.ServiceEnvelope()
-    # print (f"message: {msg}")
+    if print_service_envolope: se = mqtt_pb2.ServiceEnvelope()
+
     is_encrypted = False
     try:
         se.ParseFromString(msg.payload)
+        print ("")
+        print ("Service Envelope:")
+        print (se)
         mp = se.packet
-        if print_message_packet: print(mp)
+        if print_message_packet: 
+            print ("")
+            print ("Message Packet:")
+            print(mp)
     except Exception as e:
         print(f"*** ParseFromString: {str(e)}")
         return
@@ -258,7 +266,10 @@ def on_message(client, userdata, msg):
         info = mesh_pb2.User()
         info.ParseFromString(mp.decoded.payload)
         maybe_store_nodeinfo_in_db(info)
-        # print(info)
+        if print_node_info:
+            print("")
+            print("NodeInfo:")
+            print(info)
         
     # elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
     #     pos = mesh_pb2.Position()
@@ -277,7 +288,11 @@ def decode_encrypted(mp):
         
         try:
             # Convert key to bytes
-            key_bytes = base64.b64decode(key.encode('ascii'))
+            # key_bytes = base64.b64decode(key.encode('ascii'))
+            keys_to_try = [
+                base64.b64decode(key.encode('ascii')),
+                default_key
+            ]
 
             nonce_packet_id = getattr(mp, "id").to_bytes(8, "little")
             nonce_from_node = getattr(mp, "from").to_bytes(8, "little")
@@ -285,12 +300,18 @@ def decode_encrypted(mp):
             # Put both parts into a single byte array.
             nonce = nonce_packet_id + nonce_from_node
 
-            if key == "AQ==":
-                key_bytes = default_key
+            # if key == "AQ==":
+            #     key_bytes = default_key
 
-            cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
-            decryptor = cipher.decryptor()
-            decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
+            for key_bytes in keys_to_try:
+                try:
+                    cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
+                    decryptor = cipher.decryptor()
+                    decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
+                    break
+                except Exception as e:
+                    if debug: print(f"Decryption attempt failed with key: {key_bytes}, error: {str(e)}")
+
 
             data = mesh_pb2.Data()
             data.ParseFromString(decrypted_bytes)
@@ -313,7 +334,6 @@ def process_message(mp, text_payload, is_encrypted):
         elif getattr(mp, "from") == node_number and getattr(mp, "to") != broadcast_id:
             receiver_short_name = get_short_name_by_id(getattr(mp, "to"))
             string = f"{current_time()} DM to {receiver_short_name}: {text_payload}"
-            if display_dm: string =  string[:9] + dm_emoji + string[9:]
         else:    
             string = f"{current_time()} {sender_short_name}: {text_payload}"
 
@@ -333,7 +353,9 @@ def process_message(mp, text_payload, is_encrypted):
             "id": getattr(mp, "id"),
             "to": getattr(mp, "to")
         }
-        if print_text_message: print(text)
+        if print_text_message: 
+            print("")
+            print(text)
     else:
         if debug: print("duplicate message ignored")
 
@@ -464,7 +486,7 @@ def send_node_info():
     mesh_packet.id = random.getrandbits(32)
     mesh_packet.to = broadcast_id
     mesh_packet.want_ack = True
-    mesh_packet.channel = 0
+    mesh_packet.channel = generate_hash(channel, key)
     mesh_packet.hop_limit = 3
 
     service_envelope = mqtt_pb2.ServiceEnvelope()
