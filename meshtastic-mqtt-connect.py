@@ -27,13 +27,13 @@ import json
 #### Debug Options
 debug = True
 print_service_envelope = False
-print_message_packet = True
+print_message_packet = False
 print_text_message = False
-print_node_info =  True
-print_failed_encryption_packet = True
+print_node_info =  False
+print_failed_encryption_packet = False
 print_position_report = False
 color_text = False
-display_encrypted = True
+display_encrypted_emoji = True
 display_dm_emoji = True
 display_private_dms = False
 
@@ -351,7 +351,7 @@ def process_message(mp, text_payload, is_encrypted):
 
         if is_encrypted and not private_dm:
             color="encrypted"
-            if display_encrypted: string = string[:9] + encrypted_emoji + string[9:]
+            if display_encrypted_emoji: string = string[:9] + encrypted_emoji + string[9:]
         else:
             color="unencrypted"
         if not private_dm:
