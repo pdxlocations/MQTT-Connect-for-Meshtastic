@@ -27,9 +27,9 @@ import json
 #### Debug Options
 debug = True
 print_service_envelope = False
-print_message_packet = False
+print_message_packet = True
 print_text_message = False
-print_node_info =  False
+print_node_info =  True
 print_failed_encryption_packet = False
 print_position_report = False
 color_text = False
@@ -499,7 +499,7 @@ def send_node_info(destination_id):
     encoded_message.want_response = True  # Request NodeInfo back
 
     mesh_packet = mesh_pb2.MeshPacket()
-    mesh_packet.decoded.CopyFrom(encoded_message)
+    # mesh_packet.decoded.CopyFrom(encoded_message)
 
     setattr(mesh_packet, "from", node_number)
     mesh_packet.id = random.getrandbits(32)
@@ -507,6 +507,23 @@ def send_node_info(destination_id):
     mesh_packet.want_ack = False
     mesh_packet.channel = generate_hash(channel, key)
     mesh_packet.hop_limit = 3
+
+
+    if key == "":
+        do_encrypt = False
+        if debug: print("key is none")
+    else:
+        do_encrypt = True
+        if debug: print("key present")
+
+    if do_encrypt:
+        mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
+    else:
+        mesh_packet.decoded.CopyFrom(encoded_message)
+
+
+
+
 
     service_envelope = mqtt_pb2.ServiceEnvelope()
     service_envelope.packet.CopyFrom(mesh_packet)
