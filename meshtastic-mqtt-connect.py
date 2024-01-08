@@ -35,6 +35,7 @@ color_text = False
 display_encrypted = True
 display_dm_emoji = True
 display_private_dms = False
+print_position_report = False
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
@@ -638,7 +639,7 @@ def maybe_store_nodeinfo_in_db(info):
 
 
 def maybe_store_position_in_db(node_id, position):
-    if debug:
+    if print_position_report:
         print(f"Position report for: {get_short_name_by_id(node_id)}")
         print(position)
 
