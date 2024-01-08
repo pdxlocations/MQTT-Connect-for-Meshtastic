@@ -469,7 +469,7 @@ def send_node_info(destination_id):
     if destination_id == broadcast_id:
         message =  current_time() + " >>> Broadcast NodeInfo Packet"
     else:
-        message =  current_time() + " >>> Sending NodeInfo Packet to " + str(broadcast_id)
+        message =  current_time() + " >>> Sending NodeInfo Packet to " + str(destination_id)
     update_gui(message, tag="info")
 
 
