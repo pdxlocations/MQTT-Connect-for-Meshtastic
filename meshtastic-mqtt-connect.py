@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-Meshtastic MQTT Connect Version 0.2.3 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.2.4 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -120,9 +120,8 @@ def get_short_name_by_id(user_id):
         if result:
             return result[0]
         else:
-            ## TODO request nodeinfo by DM and try again
             if user_id != broadcast_id:
-                send_node_info()
+                send_node_info(user_id)  # DM unknown user a nodeinfo with want_response
             return f"Unknown User ({hex_user_id})"
     
     except sqlite3.Error as e:
@@ -463,12 +462,16 @@ def encrypt_message(channel, key, mesh_packet, encoded_message):
     return encrypted_bytes
 
 
-def send_node_info():
-    if debug: print("send_node_info")
-    message =  current_time() + " >>> Sending NodeInfo Packet"
-    update_gui(message, tag="info")
+def send_node_info(destination_id):
 
     global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
+    if debug: print("send_node_info")
+    if destination_id == broadcast_id:
+        message =  current_time() + " >>> Broadcast NodeInfo Packet"
+    else:
+        message =  current_time() + " >>> Sending NodeInfo Packet to " + broadcast_id
+    update_gui(message, tag="info")
+
 
     client_short_name = short_name_entry.get()
     client_long_name = long_name_entry.get()
@@ -495,7 +498,7 @@ def send_node_info():
 
     setattr(mesh_packet, "from", node_number)
     mesh_packet.id = random.getrandbits(32)
-    mesh_packet.to = broadcast_id
+    mesh_packet.to = destination_id
     mesh_packet.want_ack = False
     mesh_packet.channel = generate_hash(channel, key)
     mesh_packet.hop_limit = 3
@@ -854,7 +857,7 @@ def on_connect(client, userdata, flags, rc):
         client.subscribe(subscribe_topic)
         message = f"{current_time()} >>> Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
         update_gui(message, tag="info")
-        send_node_info()
+        send_node_info(broadcast_id)
 
     else:
         message = f"{current_time()} >>> Failed to connect to MQTT broker with result code {str(rc)}"
@@ -1048,7 +1051,7 @@ connect_button.grid(row=2, column=2, padx=5, pady=1, sticky=tk.EW)
 disconnect_button = tk.Button(message_log_frame, text="Disconnect", command=disconnect_mqtt)
 disconnect_button.grid(row=3, column=2, padx=5, pady=1, sticky=tk.EW)
 
-node_info_button = tk.Button(message_log_frame, text="Send NodeInfo", command=send_node_info)
+node_info_button = tk.Button(message_log_frame, text="Send NodeInfo", command=lambda: send_node_info(broadcast_id))
 node_info_button.grid(row=4, column=2, padx=5, pady=1, sticky=tk.EW)
 
 erase_nodedb_button = tk.Button(message_log_frame, text="Erase NodeDB", command=erase_nodedb)
@@ -1126,7 +1129,7 @@ mqtt_thread.start()
 # Function to broadcast NodeInfo in a separate thread
 def send_node_info_periodically():
     if client.is_connected():
-        send_node_info()
+        send_node_info(broadcast_id)
 
 node_info_timer = threading.Timer(node_info_interval_minutes * 60, send_node_info_periodically)
 node_info_timer.start()
