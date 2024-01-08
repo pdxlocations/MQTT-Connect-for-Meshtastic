@@ -423,16 +423,11 @@ def publish_message(destination_id):
         mesh_packet.channel = 0 # will get set to hash (or 8 for AQ==) below
 
         if key == "":
-            do_encrypt = False
+            mesh_packet.decoded.CopyFrom(encoded_message)
             if debug: print("key is none")
         else:
-            do_encrypt = True
-            if debug: print("key present")
-    
-        if do_encrypt:
             mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
-        else:
-            mesh_packet.decoded.CopyFrom(encoded_message)
+            if debug: print("key present")
             
         service_envelope = mqtt_pb2.ServiceEnvelope()
         service_envelope.packet.CopyFrom(mesh_packet)
@@ -499,7 +494,7 @@ def send_node_info(destination_id):
     encoded_message.want_response = True  # Request NodeInfo back
 
     mesh_packet = mesh_pb2.MeshPacket()
-    mesh_packet.decoded.CopyFrom(encoded_message)
+    # mesh_packet.decoded.CopyFrom(encoded_message)
 
     setattr(mesh_packet, "from", node_number)
     mesh_packet.id = random.getrandbits(32)
@@ -507,6 +502,16 @@ def send_node_info(destination_id):
     mesh_packet.want_ack = False
     mesh_packet.channel = generate_hash(channel, key)
     mesh_packet.hop_limit = 3
+
+
+    if key == "":
+        mesh_packet.decoded.CopyFrom(encoded_message)
+        if debug: print("key is none")
+    else:
+        mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
+        if debug: print("key present")
+
+
 
     service_envelope = mqtt_pb2.ServiceEnvelope()
     service_envelope.packet.CopyFrom(mesh_packet)
