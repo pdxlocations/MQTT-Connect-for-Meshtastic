@@ -31,11 +31,11 @@ print_message_packet = False
 print_text_message = False
 print_node_info =  False
 print_failed_encryption_packet = True
+print_position_report = False
 color_text = False
 display_encrypted = True
 display_dm_emoji = True
 display_private_dms = False
-print_position_report = False
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
@@ -416,7 +416,7 @@ def publish_message(destination_id):
         setattr(mesh_packet, "from", node_number)
         mesh_packet.id = random.getrandbits(32)
         mesh_packet.to = destination_id
-        mesh_packet.want_ack = True
+        mesh_packet.want_ack = False
         mesh_packet.hop_limit = 3
         mesh_packet.channel = 0 # will get set to hash (or 8 for AQ==) below
 
@@ -496,7 +496,7 @@ def send_node_info():
     setattr(mesh_packet, "from", node_number)
     mesh_packet.id = random.getrandbits(32)
     mesh_packet.to = broadcast_id
-    mesh_packet.want_ack = True
+    mesh_packet.want_ack = False
     mesh_packet.channel = generate_hash(channel, key)
     mesh_packet.hop_limit = 3
 
