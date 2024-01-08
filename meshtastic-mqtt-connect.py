@@ -27,9 +27,9 @@ import json
 #### Debug Options
 debug = True
 print_service_envelope = False
-print_message_packet = True
+print_message_packet = False
 print_text_message = False
-print_node_info =  True
+print_node_info =  False
 print_failed_encryption_packet = False
 print_position_report = False
 color_text = False
@@ -423,16 +423,11 @@ def publish_message(destination_id):
         mesh_packet.channel = 0 # will get set to hash (or 8 for AQ==) below
 
         if key == "":
-            do_encrypt = False
+            mesh_packet.decoded.CopyFrom(encoded_message)
             if debug: print("key is none")
         else:
-            do_encrypt = True
-            if debug: print("key present")
-    
-        if do_encrypt:
             mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
-        else:
-            mesh_packet.decoded.CopyFrom(encoded_message)
+            if debug: print("key present")
             
         service_envelope = mqtt_pb2.ServiceEnvelope()
         service_envelope.packet.CopyFrom(mesh_packet)
@@ -510,18 +505,11 @@ def send_node_info(destination_id):
 
 
     if key == "":
-        do_encrypt = False
+        mesh_packet.decoded.CopyFrom(encoded_message)
         if debug: print("key is none")
     else:
-        do_encrypt = True
-        if debug: print("key present")
-
-    if do_encrypt:
         mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
-    else:
-        mesh_packet.decoded.CopyFrom(encoded_message)
-
-
+        if debug: print("key present")
 
 
 
