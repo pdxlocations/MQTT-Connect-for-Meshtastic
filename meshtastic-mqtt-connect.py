@@ -645,16 +645,26 @@ def maybe_store_position_in_db(node_id, position):
             db_cursor = db_connection.cursor()
 
             # Check for an existing entry for the timestamp; this indicates a position that has bounced around the mesh.
-            existing_record = db_cursor.execute('SELECT * FROM positions WHERE node_id=? AND timestamp=?', (node_id,timestamp)).fetchone()
-            if existing_record is not None:
-                if debug: print("Rejecting duplicate position record")
+            existing_record = db_cursor.execute('SELECT * FROM positions WHERE node_id=?', (node_id,)).fetchone()
+
+            # Insert a new record if none exists yet.
+            if existing_record is None:
+                db_cursor.execute('''
+                    INSERT INTO positions (node_id, short_name, timestamp, latitude, longitude)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (node_id, get_short_name_by_id(node_id), timestamp, latitude, longitude))
+                db_connection.commit()
                 return
 
-            db_cursor.execute('''
-                INSERT INTO positions (node_id, short_name, timestamp, latitude, longitude)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (node_id, get_short_name_by_id(node_id), timestamp, latitude, longitude))
-            db_connection.commit()
+            if timestamp > datetime.strptime(existing_record[2], "%Y-%m-%d %H:%M:%S"):
+                db_cursor.execute('''
+                    UPDATE positions
+                    SET short_name=?, timestamp=?, latitude=?, longitude=?
+                    WHERE node_id=?
+                ''', (get_short_name_by_id(node_id), timestamp, latitude, longitude, node_id))
+                db_connection.commit()
+            else:
+                if debug: print("Rejecting old position record")
 
         except sqlite3.Error as e:
             print(f"SQLite error in maybe_store_position_in_db: {e}")
