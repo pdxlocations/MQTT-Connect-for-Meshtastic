@@ -27,15 +27,17 @@ import json
 #### Debug Options
 debug = True
 print_service_envelope = False
-print_message_packet = False
+print_message_packet = True
 print_text_message = False
-print_node_info =  False
+print_node_info =  True
 print_failed_encryption_packet = True
 print_position_report = False
 color_text = False
 display_encrypted = True
 display_dm_emoji = True
 display_private_dms = False
+
+record_locations = False
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
@@ -282,7 +284,8 @@ def on_message(client, userdata, msg):
     elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
         pos = mesh_pb2.Position()
         pos.ParseFromString(mp.decoded.payload)
-        maybe_store_position_in_db(getattr(mp, "from"), pos)
+        if record_locations:
+            maybe_store_position_in_db(getattr(mp, "from"), pos)
 
     # elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
     #     env = telemetry_pb2.EnvironmentMetrics()
@@ -468,9 +471,11 @@ def send_node_info(destination_id):
     if debug: print("send_node_info")
     if destination_id == broadcast_id:
         message =  current_time() + " >>> Broadcast NodeInfo Packet"
+        update_gui(message, tag="info")
     else:
-        message =  current_time() + " >>> Sending NodeInfo Packet to " + str(destination_id)
-    update_gui(message, tag="info")
+        # message =  current_time() + " >>> Sending NodeInfo Packet to " + str(destination_id)
+        if debug: print(f"Sending NodeInfo Packet to {str(destination_id)}")
+    # update_gui(message, tag="info")
 
 
     client_short_name = short_name_entry.get()
