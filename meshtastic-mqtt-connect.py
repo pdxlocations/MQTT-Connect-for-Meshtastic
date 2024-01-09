@@ -110,9 +110,9 @@ def generate_hash(name, key):
 
 def get_short_name_by_id(user_id):
     try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
-        
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
+    
         # Convert the user_id to hex and prepend '!'
         hex_user_id = '!' + hex(user_id)[2:]
 
@@ -357,7 +357,7 @@ def process_message(mp, text_payload, is_encrypted):
         if not private_dm:
             update_gui(string, text_widget=message_history, tag=color)
         m_id = getattr(mp, "id")
-        insert_message_to_db(current_time(), sender_short_name, text_payload, m_id)
+        insert_message_to_db(current_time(), sender_short_name, text_payload, m_id, is_encrypted)
 
         text = {
             "message": text_payload,
@@ -375,8 +375,8 @@ def process_message(mp, text_payload, is_encrypted):
 def message_exists(mp):
     if debug: print("message_exists")
     try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
 
         # Check if a record with the same message_id already exists
         existing_record = db_cursor.execute('SELECT * FROM messages WHERE message_id=?', (str(getattr(mp, "id")),)).fetchone()
@@ -526,7 +526,7 @@ def send_node_info(destination_id):
 
 def send_ack():
     ## TODO
-    '''
+    """
     meshtastic_MeshPacket *p = router->allocForSending();
     p->decoded.portnum = meshtastic_PortNum_ROUTING_APP;
     p->decoded.payload.size =
@@ -554,7 +554,7 @@ def send_ack():
     Note: This flag is normally sent in a flag bit in the header when sent over the wire */
     bool want_ack;
 
-    '''
+    """
 
 
 #################################
@@ -564,8 +564,8 @@ def send_ack():
 def setup_db():
     if debug: print("setup_db")
     global db_connection
-    db_connection = sqlite3.connect(db_file_path)
-    db_cursor = db_connection.cursor()
+    with sqlite3.connect(db_file_path) as db_connection:
+        db_cursor = db_connection.cursor()
 
     # Create a table if it doesn't exist
     db_cursor.execute('''
@@ -582,7 +582,8 @@ def setup_db():
             timestamp TEXT,
             sender TEXT,
             content TEXT,
-            message_id TEXT        
+            message_id TEXT,
+            is_encrypted INTEGER
         )
     ''')
 
@@ -605,8 +606,8 @@ def maybe_store_nodeinfo_in_db(info):
     if debug: print("node info packet received: Checking for existing entry in DB")
 
     try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
         
         # Check if a record with the same user_id already exists
         existing_record = db_cursor.execute('SELECT * FROM nodeinfo WHERE user_id=?', (info.id,)).fetchone()
@@ -674,8 +675,8 @@ def maybe_store_position_in_db(node_id, position):
         timestamp = datetime.fromtimestamp(mktime(timestamp))
 
         try:
-            db_connection = sqlite3.connect(db_file_path)
-            db_cursor = db_connection.cursor()
+            with sqlite3.connect(db_file_path) as db_connection:
+                db_cursor = db_connection.cursor()
 
             # Check for an existing entry for the timestamp; this indicates a position that has bounced around the mesh.
             existing_record = db_cursor.execute('SELECT * FROM positions WHERE node_id=?', (node_id,)).fetchone()
@@ -706,15 +707,15 @@ def maybe_store_position_in_db(node_id, position):
             db_connection.close()
 
 
-def insert_message_to_db(time, sender_short_name, text_payload, message_id):
+def insert_message_to_db(time, sender_short_name, text_payload, message_id, is_encrypted):
     if debug: print("insert_message_to_db")
     try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
 
         # Strip newline characters and insert the message into the messages table
         formatted_message = text_payload.strip()
-        db_cursor.execute('INSERT INTO messages (timestamp, sender, content, message_id) VALUES (?,?,?,?)', (time, sender_short_name, formatted_message, message_id))
+        db_cursor.execute('INSERT INTO messages (timestamp, sender, content, message_id, is_encrypted) VALUES (?,?,?,?,?)', (time, sender_short_name, formatted_message, message_id, is_encrypted))
         db_connection.commit()
 
     except sqlite3.Error as e:
@@ -727,18 +728,21 @@ def insert_message_to_db(time, sender_short_name, text_payload, message_id):
 def load_message_history_from_db():
     if debug: print("load_message_history_from_db")
     try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
 
         # Fetch all messages from the database
-        messages = db_cursor.execute('SELECT timestamp, sender, content FROM messages').fetchall()
+        messages = db_cursor.execute('SELECT timestamp, sender, content, is_encrypted FROM messages').fetchall()
 
         message_history.config(state=tk.NORMAL)
         message_history.delete('1.0', tk.END)
 
         # Display each message in the message_history widget
         for message in messages:
-            the_message = f"{message[0]} {message[1]}: {message[2]}\n"
+            if message[3] == 1:
+                the_message = f"{message[0]} {encrypted_emoji}{message[1]}: {message[2]}\n"
+            else:
+                the_message = f"{message[0]} {message[1]}: {message[2]}\n"
             message_history.insert(tk.END, the_message)
 
         message_history.config(state=tk.DISABLED)
@@ -756,8 +760,8 @@ def erase_nodedb():
     confirmed = tkinter.messagebox.askyesno("Confirmation", "Are you sure you want to erase the database: " + db_file_path + "?")
 
     if confirmed:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
 
         # Clear all records from the database
         db_cursor.execute('DELETE FROM nodeinfo')
@@ -780,8 +784,8 @@ def erase_messagedb():
     confirmed = tkinter.messagebox.askyesno("Confirmation", "Are you sure you want to erase the message history of: " + db_file_path + "?")
 
     if confirmed:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
 
         # Clear all records from the database
         db_cursor.execute('DELETE FROM messages')
@@ -886,8 +890,8 @@ def on_disconnect(client, userdata, rc):
 
 def update_node_list():
     try:
-        db_connection = sqlite3.connect(db_file_path)
-        db_cursor = db_connection.cursor()
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
 
         # Fetch all nodes from the database
         nodes = db_cursor.execute('SELECT user_id, long_name, short_name FROM nodeinfo').fetchall()
