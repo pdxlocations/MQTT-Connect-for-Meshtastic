@@ -37,7 +37,7 @@ display_encrypted_emoji = True
 display_dm_emoji = True
 display_private_dms = False
 
-record_locations = False
+record_locations = True
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
@@ -414,32 +414,72 @@ def publish_message(destination_id):
         encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP 
         encoded_message.payload = message_text.encode("utf-8")
 
-        mesh_packet = mesh_pb2.MeshPacket()
+    generate_mesh_packet(destination_id, encoded_message)
 
-        setattr(mesh_packet, "from", node_number)
-        mesh_packet.id = random.getrandbits(32)
-        mesh_packet.to = destination_id
-        mesh_packet.want_ack = False
-        mesh_packet.hop_limit = 3
-        mesh_packet.channel = 0 # will get set to hash (or 8 for AQ==) below
 
-        if key == "":
-            mesh_packet.decoded.CopyFrom(encoded_message)
-            if debug: print("key is none")
+def send_node_info(destination_id):
+
+    global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
+    if debug: print("send_node_info")
+
+    if not client.is_connected():
+        message =  current_time() + " >>> Connect to a broker before sending nodeinfo"
+        update_gui(message, tag="info")
+    else:
+        if destination_id == broadcast_id:
+            message =  current_time() + " >>> Broadcast NodeInfo Packet"
+            update_gui(message, tag="info")
         else:
-            mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
-            if debug: print("key present")
-            
-        service_envelope = mqtt_pb2.ServiceEnvelope()
-        service_envelope.packet.CopyFrom(mesh_packet)
-        service_envelope.channel_id = channel
-        service_envelope.gateway_id = node_name
+            if debug: print(f"Sending NodeInfo Packet to {str(destination_id)}")
 
-        payload = service_envelope.SerializeToString()
-        set_topic()
-        if debug: print(f"Publish Topic is: {publish_topic}")
-        client.publish(publish_topic, payload)
-        message_entry.delete(0, tk.END)
+        node_number = int(node_number_entry.get())
+
+        decoded_client_id = bytes(node_name, "utf-8")
+        decoded_client_long = bytes(long_name_entry.get(), "utf-8")
+        decoded_client_short = bytes(short_name_entry.get(), "utf-8")
+        decoded_client_hw_model = client_hw_model
+        user_payload = mesh_pb2.User()
+        setattr(user_payload, "id", decoded_client_id)
+        setattr(user_payload, "long_name", decoded_client_long)
+        setattr(user_payload, "short_name", decoded_client_short)
+        setattr(user_payload, "hw_model", decoded_client_hw_model)
+
+        user_payload = user_payload.SerializeToString()
+
+        encoded_message = mesh_pb2.Data()
+        encoded_message.portnum = portnums_pb2.NODEINFO_APP
+        encoded_message.payload = user_payload
+        encoded_message.want_response = True  # Request NodeInfo back
+
+        generate_mesh_packet(destination_id, encoded_message)
+
+
+def generate_mesh_packet(destination_id, encoded_message):
+    mesh_packet = mesh_pb2.MeshPacket()
+
+    setattr(mesh_packet, "from", node_number)
+    mesh_packet.id = random.getrandbits(32)
+    mesh_packet.to = destination_id
+    mesh_packet.want_ack = False
+    mesh_packet.channel = generate_hash(channel, key)
+    mesh_packet.hop_limit = 3
+
+    if key == "":
+        mesh_packet.decoded.CopyFrom(encoded_message)
+        if debug: print("key is none")
+    else:
+        mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
+        if debug: print("key present")
+
+    service_envelope = mqtt_pb2.ServiceEnvelope()
+    service_envelope.packet.CopyFrom(mesh_packet)
+    service_envelope.channel_id = channel
+    service_envelope.gateway_id = node_name
+    # print (service_envelope)
+
+    payload = service_envelope.SerializeToString()
+    set_topic()
+    client.publish(publish_topic, payload)
 
 
 def encrypt_message(channel, key, mesh_packet, encoded_message):
@@ -459,75 +499,6 @@ def encrypt_message(channel, key, mesh_packet, encoded_message):
     encrypted_bytes = encryptor.update(encoded_message.SerializeToString()) + encryptor.finalize()
 
     return encrypted_bytes
-
-
-def send_node_info(destination_id):
-
-    global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
-    if debug: print("send_node_info")
-
-    if not client.is_connected():
-        message =  current_time() + " >>> Connect to a broker before sending nodeinfo"
-        update_gui(message, tag="info")
-    else:
-        if destination_id == broadcast_id:
-            message =  current_time() + " >>> Broadcast NodeInfo Packet"
-            update_gui(message, tag="info")
-        else:
-            # message =  current_time() + " >>> Sending NodeInfo Packet to " + str(destination_id)
-            if debug: print(f"Sending NodeInfo Packet to {str(destination_id)}")
-        # update_gui(message, tag="info")
-
-
-        client_short_name = short_name_entry.get()
-        client_long_name = long_name_entry.get()
-        node_number = int(node_number_entry.get())
-
-        decoded_client_id = bytes(node_name, "utf-8")
-        decoded_client_long = bytes(client_long_name, "utf-8")
-        decoded_client_short = bytes(client_short_name, "utf-8")
-        decoded_client_hw_model = client_hw_model
-        user_payload = mesh_pb2.User()
-        setattr(user_payload, "id", decoded_client_id)
-        setattr(user_payload, "long_name", decoded_client_long)
-        setattr(user_payload, "short_name", decoded_client_short)
-        setattr(user_payload, "hw_model", decoded_client_hw_model)
-
-        user_payload = user_payload.SerializeToString()
-        encoded_message = mesh_pb2.Data()
-        encoded_message.portnum = portnums_pb2.NODEINFO_APP
-        encoded_message.payload = user_payload
-        encoded_message.want_response = True  # Request NodeInfo back
-
-        mesh_packet = mesh_pb2.MeshPacket()
-        # mesh_packet.decoded.CopyFrom(encoded_message)
-
-        setattr(mesh_packet, "from", node_number)
-        mesh_packet.id = random.getrandbits(32)
-        mesh_packet.to = destination_id
-        mesh_packet.want_ack = False
-        mesh_packet.channel = generate_hash(channel, key)
-        mesh_packet.hop_limit = 3
-
-
-        if key == "":
-            mesh_packet.decoded.CopyFrom(encoded_message)
-            if debug: print("key is none")
-        else:
-            mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
-            if debug: print("key present")
-
-
-
-        service_envelope = mqtt_pb2.ServiceEnvelope()
-        service_envelope.packet.CopyFrom(mesh_packet)
-        service_envelope.channel_id = channel
-        service_envelope.gateway_id = node_name
-        # print (service_envelope)
-
-        payload = service_envelope.SerializeToString()
-        set_topic()
-        client.publish(publish_topic, payload)
 
 
 def send_ack():
