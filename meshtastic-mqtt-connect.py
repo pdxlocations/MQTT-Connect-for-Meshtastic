@@ -931,22 +931,30 @@ def on_nodeinfo_click(event):
 
 root = tk.Tk()
 root.title("Meshtastic MQTT Connect")
-# root.geometry("1200x850")
 
-message_log_frame = tk.Frame(root)
-message_log_frame.grid(row=0, column=0, padx=(5,0), pady=5, sticky=tk.NSEW)
+# Create PanedWindow
+paned_window = tk.PanedWindow(root, orient=tk.HORIZONTAL, sashrelief=tk.RAISED)
+paned_window.grid(row=0, column=0, padx=5, pady=5, sticky=tk.NSEW)
 
-node_info_frame = tk.Frame(root)
-node_info_frame.grid(row=0, column=1, padx=(0,5), pady=5, sticky=tk.NSEW)
+# Log Frame
+message_log_frame = tk.Frame(paned_window)
+paned_window.add(message_log_frame)
+
+# Info Frame
+node_info_frame = tk.Frame(paned_window)
+paned_window.add(node_info_frame)
+
+# Set weights for resizable frames
+paned_window.paneconfigure(message_log_frame)
+paned_window.paneconfigure(node_info_frame)
 
 root.grid_rowconfigure(0, weight=1)
 root.grid_columnconfigure(0, weight=1)
-# root.grid_columnconfigure(1, weight=3)
 message_log_frame.grid_rowconfigure(9, weight=1)
 message_log_frame.grid_columnconfigure(1, weight=1)
 message_log_frame.grid_columnconfigure(2, weight=1)
 node_info_frame.grid_rowconfigure(0, weight=1)
-# node_info_frame.grid_columnconfigure(0, weight=1)
+node_info_frame.grid_columnconfigure(0, weight=1)
 
 w = 1200 # ~width for the Tk root
 h = 900 # ~height for the Tk root
