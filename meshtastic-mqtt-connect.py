@@ -121,8 +121,10 @@ def get_short_name_by_id(user_id):
 
         if result:
             return result[0]
+        # If we don't find a user id in the db, ask for an id
         else:
             if user_id != broadcast_id:
+                if debug: print ("didn't find user in db")
                 send_node_info(user_id)  # DM unknown user a nodeinfo with want_response
             return f"Unknown User ({hex_user_id})"
     
@@ -316,8 +318,7 @@ def decode_encrypted(mp):
 
         except Exception as e:
 
-            if print_message_packet: print(mp)
-
+            if print_message_packet: print(f"failed to decrypt: \n{mp}")
             print(f"*** Decryption failed: {str(e)}")
             return
 
@@ -464,64 +465,69 @@ def send_node_info(destination_id):
 
     global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
     if debug: print("send_node_info")
-    if destination_id == broadcast_id:
-        message =  current_time() + " >>> Broadcast NodeInfo Packet"
+
+    if not client.is_connected():
+        message =  current_time() + " >>> Connect to a broker before sending nodeinfo"
         update_gui(message, tag="info")
     else:
-        # message =  current_time() + " >>> Sending NodeInfo Packet to " + str(destination_id)
-        if debug: print(f"Sending NodeInfo Packet to {str(destination_id)}")
-    # update_gui(message, tag="info")
+        if destination_id == broadcast_id:
+            message =  current_time() + " >>> Broadcast NodeInfo Packet"
+            update_gui(message, tag="info")
+        else:
+            # message =  current_time() + " >>> Sending NodeInfo Packet to " + str(destination_id)
+            if debug: print(f"Sending NodeInfo Packet to {str(destination_id)}")
+        # update_gui(message, tag="info")
 
 
-    client_short_name = short_name_entry.get()
-    client_long_name = long_name_entry.get()
-    node_number = int(node_number_entry.get())
+        client_short_name = short_name_entry.get()
+        client_long_name = long_name_entry.get()
+        node_number = int(node_number_entry.get())
 
-    decoded_client_id = bytes(node_name, "utf-8")
-    decoded_client_long = bytes(client_long_name, "utf-8")
-    decoded_client_short = bytes(client_short_name, "utf-8")
-    decoded_client_hw_model = client_hw_model
-    user_payload = mesh_pb2.User()
-    setattr(user_payload, "id", decoded_client_id)
-    setattr(user_payload, "long_name", decoded_client_long)
-    setattr(user_payload, "short_name", decoded_client_short)
-    setattr(user_payload, "hw_model", decoded_client_hw_model)
+        decoded_client_id = bytes(node_name, "utf-8")
+        decoded_client_long = bytes(client_long_name, "utf-8")
+        decoded_client_short = bytes(client_short_name, "utf-8")
+        decoded_client_hw_model = client_hw_model
+        user_payload = mesh_pb2.User()
+        setattr(user_payload, "id", decoded_client_id)
+        setattr(user_payload, "long_name", decoded_client_long)
+        setattr(user_payload, "short_name", decoded_client_short)
+        setattr(user_payload, "hw_model", decoded_client_hw_model)
 
-    user_payload = user_payload.SerializeToString()
-    encoded_message = mesh_pb2.Data()
-    encoded_message.portnum = portnums_pb2.NODEINFO_APP
-    encoded_message.payload = user_payload
-    encoded_message.want_response = True  # Request NodeInfo back
+        user_payload = user_payload.SerializeToString()
+        encoded_message = mesh_pb2.Data()
+        encoded_message.portnum = portnums_pb2.NODEINFO_APP
+        encoded_message.payload = user_payload
+        encoded_message.want_response = True  # Request NodeInfo back
 
-    mesh_packet = mesh_pb2.MeshPacket()
-    # mesh_packet.decoded.CopyFrom(encoded_message)
+        mesh_packet = mesh_pb2.MeshPacket()
+        # mesh_packet.decoded.CopyFrom(encoded_message)
 
-    setattr(mesh_packet, "from", node_number)
-    mesh_packet.id = random.getrandbits(32)
-    mesh_packet.to = destination_id
-    mesh_packet.want_ack = False
-    mesh_packet.channel = generate_hash(channel, key)
-    mesh_packet.hop_limit = 3
-
-
-    if key == "":
-        mesh_packet.decoded.CopyFrom(encoded_message)
-        if debug: print("key is none")
-    else:
-        mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
-        if debug: print("key present")
+        setattr(mesh_packet, "from", node_number)
+        mesh_packet.id = random.getrandbits(32)
+        mesh_packet.to = destination_id
+        mesh_packet.want_ack = False
+        mesh_packet.channel = generate_hash(channel, key)
+        mesh_packet.hop_limit = 3
 
 
+        if key == "":
+            mesh_packet.decoded.CopyFrom(encoded_message)
+            if debug: print("key is none")
+        else:
+            mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
+            if debug: print("key present")
 
-    service_envelope = mqtt_pb2.ServiceEnvelope()
-    service_envelope.packet.CopyFrom(mesh_packet)
-    service_envelope.channel_id = channel
-    service_envelope.gateway_id = node_name
-    # print (service_envelope)
 
-    payload = service_envelope.SerializeToString()
-    set_topic()
-    client.publish(publish_topic, payload)
+
+        service_envelope = mqtt_pb2.ServiceEnvelope()
+        service_envelope.packet.CopyFrom(mesh_packet)
+        service_envelope.channel_id = channel
+        service_envelope.gateway_id = node_name
+        # print (service_envelope)
+
+        payload = service_envelope.SerializeToString()
+        set_topic()
+        client.publish(publish_topic, payload)
 
 
 def send_ack():
@@ -839,6 +845,9 @@ def connect_mqtt():
             update_gui(f"{current_time()} >>> Failed to connect to MQTT broker: {str(e)}", tag="info")
 
         update_node_list()
+    elif client.is_connected() and channel_entry.get() is not channel:
+        print ("Channel has changed, disconnect and reconnect")
+
     else:
         update_gui(f"{current_time()} >>> Already connected to {mqtt_broker}", tag="info")
 
