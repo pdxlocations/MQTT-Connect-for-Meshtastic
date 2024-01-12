@@ -415,6 +415,7 @@ def publish_message(destination_id):
         encoded_message.payload = message_text.encode("utf-8")
 
     generate_mesh_packet(destination_id, encoded_message)
+    message_entry.delete(0, 'end') 
 
 
 def send_node_info(destination_id):
