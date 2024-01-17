@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.3.0 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.3.1 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -60,10 +60,13 @@ key_emoji = "\U0001F511"
 encrypted_emoji = "\U0001F512" 
 dm_emoji = "\u2192"
 
-# node_number = 3126770193
-node_number = 2900000000 + random.randint(0,99999)
+# Generate 4 random hexadecimal characters to create a unique node name
+random_hex_chars = ''.join(random.choices('0123456789abcdef', k=4))
+node_name = '!abcd' + random_hex_chars
 
-node_name = '!' + hex(node_number)[2:]
+# Convert hex to int and remove '!'
+node_number = int(node_name.replace("!", ""), 16)
+
 client_short_name = "MMC"
 client_long_name = "MQTTastic"
 client_hw_model = 255
@@ -72,11 +75,10 @@ node_info_interval_minutes = 15
 #################################
 ### Program variables
 
-## 1PG7OiApB1nwvP+rz05pAQ==
 default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
 broadcast_id = 4294967295
 db_file_path = "mmc.db"
-PRESETS_FILE = "presets.json"
+presets_file_path = "presets.json"
 presets = {}
 
 #################################
@@ -232,14 +234,14 @@ def preset_var_changed(*args):
 
 def save_presets_to_file():
     if debug: print("save_presets_to_file")
-    with open(PRESETS_FILE, "w") as file:
+    with open(presets_file_path, "w") as file:
         json.dump({name: preset.__dict__ for name, preset in presets.items()}, file, indent=2)
 
 
 def load_presets_from_file():
     if debug: print("load_presets_from_file")
     try:
-        with open(PRESETS_FILE, "r") as file:
+        with open(presets_file_path, "r") as file:
             loaded_presets = json.load(file)
             return {name: Preset(**data) for name, data in loaded_presets.items()}
     except FileNotFoundError:
@@ -273,8 +275,6 @@ def on_message(client, userdata, msg):
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
         decode_encrypted(mp)
         is_encrypted=True
-
-
 
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
         text_payload = mp.decoded.payload.decode("utf-8")
@@ -328,6 +328,7 @@ def decode_encrypted(mp):
             if print_message_packet: print(f"failed to decrypt: \n{mp}")
             print(f"*** Decryption failed: {str(e)}")
             return
+
 
 def process_message(mp, text_payload, is_encrypted):
     if debug: print("process_message")
@@ -552,7 +553,6 @@ def setup_db():
     with sqlite3.connect(db_file_path) as db_connection:
         db_cursor = db_connection.cursor()
 
-
     # Create a table if it doesn't exist
     table_name = sanitize_string(channel) + "_nodeinfo"
     query = f'CREATE TABLE IF NOT EXISTS {table_name} (user_id TEXT, long_name TEXT, short_name TEXT)'
@@ -625,7 +625,6 @@ def maybe_store_nodeinfo_in_db(info):
 
     finally:
         db_connection.close()
-
 
 
 def maybe_store_position_in_db(node_id, position):
@@ -742,7 +741,7 @@ def load_message_history_from_db():
         db_connection.close()
 
 
-def erase_nodedb(channel):
+def erase_nodedb():
     if debug:
         print("erase_nodedb")
 
