@@ -2,12 +2,16 @@ import sqlite3
 import folium
 from statistics import mean
 
+channel = 'LongFast'
+
 # Connect to SQLite database
-conn = sqlite3.connect('mqtt.meshtastic.org_LongFast.db')
+conn = sqlite3.connect('mmc.db')
 cursor = conn.cursor()
 
 # Fetch latitude, longitude, and short_name data from the database
-cursor.execute('SELECT latitude, longitude, short_name FROM positions;')
+
+table = channel + '_positions'
+cursor.execute(f'SELECT latitude, longitude, short_name FROM {table};')
 data = cursor.fetchall()
 
 # Calculate the mean of latitude and longitude
