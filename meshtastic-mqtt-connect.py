@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.2.5 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.3.0 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import base64
 import json
+import re
 
 #### Debug Options
 debug = True
@@ -74,7 +75,7 @@ node_info_interval_minutes = 15
 ## 1PG7OiApB1nwvP+rz05pAQ==
 default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
 broadcast_id = 4294967295
-db_file_path = "nodeinfo_"+ mqtt_broker + "_" + channel + ".db"
+db_file_path = "mmc.db"
 PRESETS_FILE = "presets.json"
 presets = {}
 
@@ -110,29 +111,35 @@ def generate_hash(name, key):
 
 def get_short_name_by_id(user_id):
     try:
+        table_name = sanitize_string(channel) + "_nodeinfo"
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
     
-        # Convert the user_id to hex and prepend '!'
-        hex_user_id = '!' + hex(user_id)[2:]
+            # Convert the user_id to hex and prepend '!'
+            hex_user_id = '!' + hex(user_id)[2:]
 
-        # Fetch the short name based on the hex user ID
-        result = db_cursor.execute('SELECT short_name FROM nodeinfo WHERE user_id=?', (hex_user_id,)).fetchone()
+            # Fetch the short name based on the hex user ID
+            result = db_cursor.execute(f'SELECT short_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
 
-        if result:
-            return result[0]
-        # If we don't find a user id in the db, ask for an id
-        else:
-            if user_id != broadcast_id:
-                if debug: print ("didn't find user in db")
-                send_node_info(user_id)  # DM unknown user a nodeinfo with want_response
-            return f"Unknown User ({hex_user_id})"
+            if result:
+                return result[0]
+            # If we don't find a user id in the db, ask for an id
+            else:
+                if user_id != broadcast_id:
+                    if debug: print("didn't find user in db")
+                    send_node_info(user_id)  # DM unknown user a nodeinfo with want_response
+                return f"Unknown User ({hex_user_id})"
     
     except sqlite3.Error as e:
         print(f"SQLite error in get_short_name_by_id: {e}")
     
     finally:
         db_connection.close()
+
+def sanitize_string(input_str):
+    # Replace special characters with underscores (for database tables)
+    sanitized_str = re.sub(r'[^a-zA-Z0-9_]', '_', input_str)
+    return sanitized_str
 
 #################################
 # Handle Presets
@@ -376,21 +383,21 @@ def process_message(mp, text_payload, is_encrypted):
 def message_exists(mp):
     if debug: print("message_exists")
     try:
+        table_name = sanitize_string(channel) + "_messages"
+
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
 
-        # Check if a record with the same message_id already exists
-        existing_record = db_cursor.execute('SELECT * FROM messages WHERE message_id=?', (str(getattr(mp, "id")),)).fetchone()
+            # Check if a record with the same message_id already exists
+            existing_record = db_cursor.execute(f'SELECT * FROM {table_name} WHERE message_id=?', (str(getattr(mp, "id")),)).fetchone()
 
-        return existing_record is not None
+            return existing_record is not None
 
     except sqlite3.Error as e:
         print(f"SQLite error in message_exists: {e}")
 
     finally:
         db_connection.close()
-
-
 
 #################################
 # Send Messages
@@ -545,89 +552,80 @@ def setup_db():
     with sqlite3.connect(db_file_path) as db_connection:
         db_cursor = db_connection.cursor()
 
+
     # Create a table if it doesn't exist
-    db_cursor.execute('''
-        CREATE TABLE IF NOT EXISTS nodeinfo (
-            user_id TEXT,
-            long_name TEXT,
-            short_name TEXT
-        )
-    ''')
+    table_name = sanitize_string(channel) + "_nodeinfo"
+    query = f'CREATE TABLE IF NOT EXISTS {table_name} (user_id TEXT, long_name TEXT, short_name TEXT)'
+    db_cursor.execute(query)
 
     # Create a new table for storing messages
-    db_cursor.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            timestamp TEXT,
-            sender TEXT,
-            content TEXT,
-            message_id TEXT,
-            is_encrypted INTEGER
-        )
-    ''')
+    table_name = sanitize_string(channel) + "_messages"
+    query = f'CREATE TABLE IF NOT EXISTS {table_name} (timestamp TEXT,sender TEXT,content TEXT,message_id TEXT, is_encrypted INTEGER)'
+    db_cursor.execute(query)
 
     # Create a new table for storing positions
-    db_cursor.execute('''
-        CREATE TABLE IF NOT EXISTS positions (
-            node_id TEXT,
-            short_name TEXT,      
-            timestamp TEXT,
-            latitude REAL,
-            longitude REAL
-        )
-    ''')
+    table_name = sanitize_string(channel) + "_positions"
+    query = f'CREATE TABLE IF NOT EXISTS {table_name} (node_id TEXT,short_name TEXT,timestamp TEXT,latitude REAL,longitude REAL)'
+    db_cursor.execute(query)
 
     db_connection.commit()
     db_connection.close()
 
 
 def maybe_store_nodeinfo_in_db(info):
-    if debug: print("node info packet received: Checking for existing entry in DB")
+    if debug:
+        print("node info packet received: Checking for existing entry in DB")
+
+    table_name = sanitize_string(channel) + "_nodeinfo"
 
     try:
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
-        
-        # Check if a record with the same user_id already exists
-        existing_record = db_cursor.execute('SELECT * FROM nodeinfo WHERE user_id=?', (info.id,)).fetchone()
 
-        if existing_record is None:
-            if debug: print("no record found, adding node to db")
-            # No existing record, insert the new record
-            db_cursor.execute('''
-                INSERT INTO nodeinfo (user_id, long_name, short_name)
-                VALUES (?, ?, ?)
-            ''', (info.id, info.long_name, info.short_name))
-            db_connection.commit()
+            # Check if a record with the same user_id already exists
+            existing_record = db_cursor.execute(f'SELECT * FROM {table_name} WHERE user_id=?', (info.id,)).fetchone()
 
-            # Fetch the new record
-            new_record = db_cursor.execute('SELECT * FROM nodeinfo WHERE user_id=?', (info.id,)).fetchone()
-
-            # Display the new record in the nodeinfo_window widget
-            message = f"{new_record[0]}, {new_record[1]}, {new_record[2]}"
-            update_gui(message, text_widget=nodeinfo_window)
-        else:
-            # Check if long_name or short_name is different, update if necessary
-            if existing_record[1] != info.long_name or existing_record[2] != info.short_name:
-                if debug: print("updating existing record in db")
-                db_cursor.execute('''
-                    UPDATE nodeinfo
-                    SET long_name=?, short_name=?
-                    WHERE user_id=?
-                ''', (info.long_name, info.short_name, info.id))
+            if existing_record is None:
+                if debug:
+                    print("no record found, adding node to db")
+                # No existing record, insert the new record
+                db_cursor.execute(f'''
+                    INSERT INTO {table_name} (user_id, long_name, short_name)
+                    VALUES (?, ?, ?)
+                ''', (info.id, info.long_name, info.short_name))
                 db_connection.commit()
 
-                # Fetch the updated record
-                updated_record = db_cursor.execute('SELECT * FROM nodeinfo WHERE user_id=?', (info.id,)).fetchone()
+                # Fetch the new record
+                new_record = db_cursor.execute(f'SELECT * FROM {table_name} WHERE user_id=?', (info.id,)).fetchone()
 
-                # Display the updated record in the nodeinfo_window widget
-                message = f"{updated_record[0]}, {updated_record[1]}, {updated_record[2]}"
+                # Display the new record in the nodeinfo_window widget
+                message = f"{new_record[0]}, {new_record[1]}, {new_record[2]}"
                 update_gui(message, text_widget=nodeinfo_window)
+            else:
+                # Check if long_name or short_name is different, update if necessary
+                if existing_record[1] != info.long_name or existing_record[2] != info.short_name:
+                    if debug:
+                        print("updating existing record in db")
+                    db_cursor.execute(f'''
+                        UPDATE {table_name}
+                        SET long_name=?, short_name=?
+                        WHERE user_id=?
+                    ''', (info.long_name, info.short_name, info.id))
+                    db_connection.commit()
+
+                    # Fetch the updated record
+                    updated_record = db_cursor.execute(f'SELECT * FROM {table_name} WHERE user_id=?', (info.id,)).fetchone()
+
+                    # Display the updated record in the nodeinfo_window widget
+                    message = f"{updated_record[0]}, {updated_record[1]}, {updated_record[2]}"
+                    update_gui(message, text_widget=nodeinfo_window)
 
     except sqlite3.Error as e:
         print(f"SQLite error in maybe_store_nodeinfo_in_db: {e}")
 
     finally:
         db_connection.close()
+
 
 
 def maybe_store_position_in_db(node_id, position):
@@ -645,38 +643,41 @@ def maybe_store_position_in_db(node_id, position):
         timestamp = time.gmtime()
         # Then, try the timestamp from the position protobuf.
         if position.timestamp > 0:
-             timestamp = time.gmtime(position.timestamp)
+            timestamp = time.gmtime(position.timestamp)
         # Then, try the time from the position protobuf.
         if position.time > 0:
-             timestamp = time.gmtime(position.time)
+            timestamp = time.gmtime(position.time)
         # Convert timestamp to datetime for database use
         timestamp = datetime.fromtimestamp(mktime(timestamp))
+
+        table_name = sanitize_string(channel) + "_positions"
 
         try:
             with sqlite3.connect(db_file_path) as db_connection:
                 db_cursor = db_connection.cursor()
 
-            # Check for an existing entry for the timestamp; this indicates a position that has bounced around the mesh.
-            existing_record = db_cursor.execute('SELECT * FROM positions WHERE node_id=?', (node_id,)).fetchone()
+                # Check for an existing entry for the timestamp; this indicates a position that has bounced around the mesh.
+                existing_record = db_cursor.execute(f'SELECT * FROM {table_name} WHERE node_id=?', (node_id,)).fetchone()
 
-            # Insert a new record if none exists yet.
-            if existing_record is None:
-                db_cursor.execute('''
-                    INSERT INTO positions (node_id, short_name, timestamp, latitude, longitude)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (node_id, get_short_name_by_id(node_id), timestamp, latitude, longitude))
-                db_connection.commit()
-                return
+                # Insert a new record if none exists yet.
+                if existing_record is None:
+                    db_cursor.execute(f'''
+                        INSERT INTO {table_name} (node_id, short_name, timestamp, latitude, longitude)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (node_id, get_short_name_by_id(node_id), timestamp, latitude, longitude))
+                    db_connection.commit()
+                    return
 
-            if timestamp > datetime.strptime(existing_record[2], "%Y-%m-%d %H:%M:%S"):
-                db_cursor.execute('''
-                    UPDATE positions
-                    SET short_name=?, timestamp=?, latitude=?, longitude=?
-                    WHERE node_id=?
-                ''', (get_short_name_by_id(node_id), timestamp, latitude, longitude, node_id))
-                db_connection.commit()
-            else:
-                if debug: print("Rejecting old position record")
+                if timestamp > datetime.strptime(existing_record[2], "%Y-%m-%d %H:%M:%S"):
+                    db_cursor.execute(f'''
+                        UPDATE {table_name}
+                        SET short_name=?, timestamp=?, latitude=?, longitude=?
+                        WHERE node_id=?
+                    ''', (get_short_name_by_id(node_id), timestamp, latitude, longitude, node_id))
+                    db_connection.commit()
+                else:
+                    if debug:
+                        print("Rejecting old position record")
 
         except sqlite3.Error as e:
             print(f"SQLite error in maybe_store_position_in_db: {e}")
@@ -686,15 +687,20 @@ def maybe_store_position_in_db(node_id, position):
 
 
 def insert_message_to_db(time, sender_short_name, text_payload, message_id, is_encrypted):
-    if debug: print("insert_message_to_db")
+    if debug:
+        print("insert_message_to_db")
+
+    table_name = sanitize_string(channel) + "_messages"
+
     try:
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
 
-        # Strip newline characters and insert the message into the messages table
-        formatted_message = text_payload.strip()
-        db_cursor.execute('INSERT INTO messages (timestamp, sender, content, message_id, is_encrypted) VALUES (?,?,?,?,?)', (time, sender_short_name, formatted_message, message_id, is_encrypted))
-        db_connection.commit()
+            # Strip newline characters and insert the message into the messages table
+            formatted_message = text_payload.strip()
+            db_cursor.execute(f'INSERT INTO {table_name} (timestamp, sender, content, message_id, is_encrypted) VALUES (?,?,?,?,?)',
+                              (time, sender_short_name, formatted_message, message_id, is_encrypted))
+            db_connection.commit()
 
     except sqlite3.Error as e:
         print(f"SQLite error in insert_message_to_db: {e}")
@@ -704,26 +710,30 @@ def insert_message_to_db(time, sender_short_name, text_payload, message_id, is_e
 
 
 def load_message_history_from_db():
-    if debug: print("load_message_history_from_db")
+    if debug:
+        print("load_message_history_from_db")
+
+    table_name = sanitize_string(channel) + "_messages"
+
     try:
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
 
-        # Fetch all messages from the database
-        messages = db_cursor.execute('SELECT timestamp, sender, content, is_encrypted FROM messages').fetchall()
+            # Fetch all messages from the database
+            messages = db_cursor.execute(f'SELECT timestamp, sender, content, is_encrypted FROM {table_name}').fetchall()
 
-        message_history.config(state=tk.NORMAL)
-        message_history.delete('1.0', tk.END)
+            message_history.config(state=tk.NORMAL)
+            message_history.delete('1.0', tk.END)
 
-        # Display each message in the message_history widget
-        for message in messages:
-            if message[3] == 1:
-                the_message = f"{message[0]} {encrypted_emoji}{message[1]}: {message[2]}\n"
-            else:
-                the_message = f"{message[0]} {message[1]}: {message[2]}\n"
-            message_history.insert(tk.END, the_message)
+            # Display each message in the message_history widget
+            for message in messages:
+                if message[3] == 1:
+                    the_message = f"{message[0]} {encrypted_emoji}{message[1]}: {message[2]}\n"
+                else:
+                    the_message = f"{message[0]} {message[1]}: {message[2]}\n"
+                message_history.insert(tk.END, the_message)
 
-        message_history.config(state=tk.DISABLED)
+            message_history.config(state=tk.DISABLED)
 
     except sqlite3.Error as e:
         print(f"SQLite error in load_message_history_from_db: {e}")
@@ -732,52 +742,69 @@ def load_message_history_from_db():
         db_connection.close()
 
 
-def erase_nodedb():
-    if debug: print("erase_nodedb")
+def erase_nodedb(channel):
+    if debug:
+        print("erase_nodedb")
 
-    confirmed = tkinter.messagebox.askyesno("Confirmation", "Are you sure you want to erase the database: " + db_file_path + "?")
+    table_name = sanitize_string(channel) + "_nodeinfo"
+
+    confirmed = tkinter.messagebox.askyesno("Confirmation", f"Are you sure you want to erase the database: {db_file_path} for channel {channel}?")
 
     if confirmed:
-        with sqlite3.connect(db_file_path) as db_connection:
-            db_cursor = db_connection.cursor()
+        try:
+            with sqlite3.connect(db_file_path) as db_connection:
+                db_cursor = db_connection.cursor()
 
-        # Clear all records from the database
-        db_cursor.execute('DELETE FROM nodeinfo')
-        db_connection.commit()
+                # Clear all records from the database
+                db_cursor.execute(f'DELETE FROM {table_name}')
+                db_connection.commit()
 
-        db_connection.close()
+        except sqlite3.Error as e:
+            print(f"SQLite error in erase_nodedb: {e}")
 
-        # Clear the display
-        nodeinfo_window.config(state=tk.NORMAL)
-        nodeinfo_window.delete('1.0', tk.END)
-        nodeinfo_window.config(state=tk.DISABLED)
-        update_gui(current_time() + " >>> Node database erased successfully.", tag="info")
+        finally:
+            db_connection.close()
+
+            # Clear the display
+            nodeinfo_window.config(state=tk.NORMAL)
+            nodeinfo_window.delete('1.0', tk.END)
+            nodeinfo_window.config(state=tk.DISABLED)
+            update_gui(f"{current_time()} >>> Node database for channel {channel} erased successfully.", tag="info")
     else:
-        update_gui(current_time() + " >>> Node database erase cancelled.", tag="info")
+        update_gui(f"{current_time()} >>> Node database erase for channel {channel} cancelled.", tag="info")
+
 
 
 def erase_messagedb():
-    if debug: print("erase_messagedb")
+    if debug:
+        print("erase_messagedb")
 
-    confirmed = tkinter.messagebox.askyesno("Confirmation", "Are you sure you want to erase the message history of: " + db_file_path + "?")
+    table_name = sanitize_string(channel) + "_messages"
+
+    confirmed = tkinter.messagebox.askyesno("Confirmation", f"Are you sure you want to erase the message history of: {db_file_path} for channel {channel}?")
 
     if confirmed:
-        with sqlite3.connect(db_file_path) as db_connection:
-            db_cursor = db_connection.cursor()
+        try:
+            with sqlite3.connect(db_file_path) as db_connection:
+                db_cursor = db_connection.cursor()
 
-        # Clear all records from the database
-        db_cursor.execute('DELETE FROM messages')
-        db_connection.commit()
+                # Clear all records from the database
+                db_cursor.execute(f'DELETE FROM {table_name}')
+                db_connection.commit()
 
-        db_connection.close()
+        except sqlite3.Error as e:
+            print(f"SQLite error in erase_messagedb: {e}")
 
-        # Clear the display
-        message_history.config(state=tk.NORMAL)
-        message_history.delete('1.0', tk.END)
-        message_history.config(state=tk.DISABLED)
-        update_gui(current_time() + " >>> Message history erased successfully.", tag="info")
+        finally:
+            db_connection.close()
+
+            # Clear the display
+            message_history.config(state=tk.NORMAL)
+            message_history.delete('1.0', tk.END)
+            message_history.config(state=tk.DISABLED)
+            update_gui(f"{current_time()} >>> Message history for channel {channel} erased successfully.", tag="info")
     else:
-        update_gui(current_time() + " >>> Message history erase cancelled.", tag="info")
+        update_gui(f"{current_time()} >>> Message history erase for channel {channel} cancelled.", tag="info")
 
 
 #################################
@@ -792,6 +819,7 @@ def connect_mqtt():
             mqtt_username = mqtt_username_entry.get()
             mqtt_password = mqtt_password_entry.get()
             channel = channel_entry.get()
+
             key = key_entry.get()
 
             if key == "AQ==":
@@ -806,7 +834,6 @@ def connect_mqtt():
 
             if debug: print (f"padded & replaced key = {key}")
 
-            db_file_path = mqtt_broker + "_" + channel + ".db"
             setup_db()
 
             client.username_pw_set(mqtt_username, mqtt_password)
@@ -871,22 +898,24 @@ def on_disconnect(client, userdata, rc):
 
 def update_node_list():
     try:
+        table_name = sanitize_string(channel) + "_nodeinfo"
+
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
 
-        # Fetch all nodes from the database
-        nodes = db_cursor.execute('SELECT user_id, long_name, short_name FROM nodeinfo').fetchall()
+            # Fetch all nodes from the database
+            nodes = db_cursor.execute(f'SELECT user_id, long_name, short_name FROM {table_name}').fetchall()
 
-        # Clear the display
-        nodeinfo_window.config(state=tk.NORMAL)
-        nodeinfo_window.delete('1.0', tk.END)
+            # Clear the display
+            nodeinfo_window.config(state=tk.NORMAL)
+            nodeinfo_window.delete('1.0', tk.END)
 
-        # Display each node in the nodeinfo_window widget
-        for node in nodes:
-            message = f"{node[0]}, {node[1]}, {node[2]}\n"
-            nodeinfo_window.insert(tk.END, message)
+            # Display each node in the nodeinfo_window widget
+            for node in nodes:
+                message = f"{node[0]}, {node[1]}, {node[2]}\n"
+                nodeinfo_window.insert(tk.END, message)
 
-        nodeinfo_window.config(state=tk.DISABLED)
+            nodeinfo_window.config(state=tk.DISABLED)
 
     except sqlite3.Error as e:
         print(f"SQLite error in update_node_list: {e}")

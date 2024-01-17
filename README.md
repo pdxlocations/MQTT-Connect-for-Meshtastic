@@ -22,7 +22,7 @@ To view the interactive map you may need to install folium with
 
 `pip3 install folium`
 
-After you've connected to a channel for some time and received location information from at least one station, open mmc-map.py and enter your database name.
+After you've connected to a channel for some time and received location information from at least one station, open mmc-map.py and enter your channel name.
 
 Run mmc-map.py and a file will be generated called mmc-map.html which may be opened in a browser.
 
