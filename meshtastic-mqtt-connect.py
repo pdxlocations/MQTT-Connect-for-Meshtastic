@@ -1164,7 +1164,7 @@ def send_node_info_periodically():
             send_node_info(broadcast_id)
         time.sleep(node_info_interval_minutes * 60)  # Convert minutes to seconds
 
-node_info_timer = threading.Thread(target=send_node_info_periodically)
+node_info_timer = threading.Thread(target=send_node_info_periodically, daemon=True)
 node_info_timer.start()
 
 def on_exit():
