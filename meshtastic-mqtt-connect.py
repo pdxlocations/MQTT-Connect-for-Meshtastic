@@ -1175,7 +1175,6 @@ def on_exit():
         db_connection.close()
     root.destroy()
     client.loop_stop()
-    node_info_timer.cancel()
 
 # Set the exit handler
 root.protocol("WM_DELETE_WINDOW", on_exit)
