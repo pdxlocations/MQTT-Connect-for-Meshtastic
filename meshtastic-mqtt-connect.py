@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.3.1 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.3.2 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -1159,10 +1159,12 @@ mqtt_thread.start()
 
 # Function to broadcast NodeInfo in a separate thread
 def send_node_info_periodically():
-    if client.is_connected():
-        send_node_info(broadcast_id)
+    while True:
+        if client.is_connected():
+            send_node_info(broadcast_id)
+        time.sleep(node_info_interval_minutes * 60)  # Convert minutes to seconds
 
-node_info_timer = threading.Timer(node_info_interval_minutes * 60, send_node_info_periodically)
+node_info_timer = threading.Thread(target=send_node_info_periodically)
 node_info_timer.start()
 
 def on_exit():
