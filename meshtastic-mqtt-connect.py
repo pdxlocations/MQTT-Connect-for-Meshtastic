@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.3.2 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.4.0 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -52,7 +52,7 @@ mqtt_broker = "mqtt.meshtastic.org"
 mqtt_port = 1883
 mqtt_username = "meshdev"
 mqtt_password = "large4cats"
-
+root_topic = "msh/US/2/c/"
 channel = "LongFast"
 key = "AQ=="
 
@@ -88,8 +88,8 @@ def set_topic():
     if debug: print("set_topic")
     global subscribe_topic, publish_topic, node_number, node_name
     node_name = '!' + hex(node_number)[2:]
-    subscribe_topic = "msh/2/c/" + channel + "/#"
-    publish_topic = "msh/2/c/" + channel + "/" + node_name
+    subscribe_topic = root_topic + channel + "/#"
+    publish_topic = root_topic + channel + "/" + node_name
 
 def current_time():
     current_time_seconds = time.time()
@@ -147,11 +147,12 @@ def sanitize_string(input_str):
 # Handle Presets
     
 class Preset:
-    def __init__(self, name, broker, username, password, channel, key, node_number, long_name, short_name):
+    def __init__(self, name, broker, username, password, root_topic, channel, key, node_number, long_name, short_name):
         self.name = name
         self.broker = broker
         self.username = username
         self.password = password
+        self.root_topic = root_topic
         self.channel = channel
         self.key = key
         self.node_number = node_number
@@ -164,6 +165,7 @@ class Preset:
             'broker': self.broker,
             'username': self.username,
             'password': self.password,
+            'root_topic': self.root_topic,
             'channel': self.channel,
             'key': self.key,
             'node_number': self.node_number,
@@ -179,9 +181,8 @@ def save_preset():
     if name is None:
         return
 
-    preset = Preset(name, mqtt_broker_entry.get(), mqtt_username_entry.get(), mqtt_password_entry.get(),
-                    channel_entry.get(), key_entry.get(), node_number_entry.get(),
-                    long_name_entry.get(), short_name_entry.get())
+    preset = Preset(name, mqtt_broker_entry.get(), mqtt_username_entry.get(), mqtt_password_entry.get(), root_topic_entry.get(),
+                    channel_entry.get(), key_entry.get(), node_number_entry.get(), long_name_entry.get(), short_name_entry.get())
     presets[name] = preset  # Store the Preset object directly
     update_preset_dropdown()
     preset_var.set(name) 
@@ -202,6 +203,8 @@ def load_preset():
         mqtt_username_entry.insert(0, selected_preset.username)
         mqtt_password_entry.delete(0, tk.END)
         mqtt_password_entry.insert(0, selected_preset.password)
+        root_topic_entry.delete(0, tk.END)
+        root_topic_entry.insert(0, selected_preset.root_topic)
         channel_entry.delete(0, tk.END)
         channel_entry.insert(0, selected_preset.channel)
         key_entry.delete(0, tk.END)
@@ -811,12 +814,13 @@ def erase_messagedb():
     
 def connect_mqtt():
     if debug: print("connect_mqtt")
-    global mqtt_broker, mqtt_username, mqtt_password, channel, node_number, db_file_path, key
+    global mqtt_broker, mqtt_username, mqtt_password, root_topic, channel, node_number, db_file_path, key
     if not client.is_connected():
         try:
             mqtt_broker = mqtt_broker_entry.get()
             mqtt_username = mqtt_username_entry.get()
             mqtt_password = mqtt_password_entry.get()
+            root_topic = root_topic_entry.get()
             channel = channel_entry.get()
 
             key = key_entry.get()
@@ -1021,47 +1025,55 @@ mqtt_password_entry.grid(row=2, column=1, padx=5, pady=1, sticky=tk.EW)
 mqtt_password_entry.insert(0, mqtt_password)
 
 
+root_topic_label = tk.Label(message_log_frame, text="Root Topic:")
+root_topic_label.grid(row=3, column=0, padx=5, pady=1, sticky=tk.W)
+
+root_topic_entry = tk.Entry(message_log_frame)
+root_topic_entry.grid(row=3, column=1, padx=5, pady=1, sticky=tk.EW)
+root_topic_entry.insert(0, root_topic)
+
+
 channel_label = tk.Label(message_log_frame, text="Channel:")
-channel_label.grid(row=3, column=0, padx=5, pady=1, sticky=tk.W)
+channel_label.grid(row=4, column=0, padx=5, pady=1, sticky=tk.W)
 
 channel_entry = tk.Entry(message_log_frame)
-channel_entry.grid(row=3, column=1, padx=5, pady=1, sticky=tk.EW)
+channel_entry.grid(row=4, column=1, padx=5, pady=1, sticky=tk.EW)
 channel_entry.insert(0, channel)
 
 
 key_label = tk.Label(message_log_frame, text="Key:")
-key_label.grid(row=4, column=0, padx=5, pady=1, sticky=tk.W)
+key_label.grid(row=5, column=0, padx=5, pady=1, sticky=tk.W)
 
 key_entry = tk.Entry(message_log_frame)
-key_entry.grid(row=4, column=1, padx=5, pady=1, sticky=tk.EW)
+key_entry.grid(row=5, column=1, padx=5, pady=1, sticky=tk.EW)
 key_entry.insert(0, key)
 
 
 node_number_label = tk.Label(message_log_frame, text="Node Number:")
-node_number_label.grid(row=5, column=0, padx=5, pady=1, sticky=tk.W)
+node_number_label.grid(row=6, column=0, padx=5, pady=1, sticky=tk.W)
 
 node_number_entry = tk.Entry(message_log_frame)
-node_number_entry.grid(row=5, column=1, padx=5, pady=1, sticky=tk.EW)
+node_number_entry.grid(row=6, column=1, padx=5, pady=1, sticky=tk.EW)
 node_number_entry.insert(0, node_number)
 
 
 separator_label = tk.Label(message_log_frame, text="____________")
-separator_label.grid(row=6, column=0, padx=5, pady=1, sticky=tk.W)
+separator_label.grid(row=7, column=0, padx=5, pady=1, sticky=tk.W)
 
 
 long_name_label = tk.Label(message_log_frame, text="Long Name:")
-long_name_label.grid(row=7, column=0, padx=5, pady=1, sticky=tk.W)
+long_name_label.grid(row=8, column=0, padx=5, pady=1, sticky=tk.W)
 
 long_name_entry = tk.Entry(message_log_frame)
-long_name_entry.grid(row=7, column=1, padx=5, pady=1, sticky=tk.EW)
+long_name_entry.grid(row=8, column=1, padx=5, pady=1, sticky=tk.EW)
 long_name_entry.insert(0, client_long_name)
 
 
 short_name_label = tk.Label(message_log_frame, text="Short Name:")
-short_name_label.grid(row=8, column=0, padx=5, pady=1, sticky=tk.W)
+short_name_label.grid(row=9, column=0, padx=5, pady=1, sticky=tk.W)
 
 short_name_entry = tk.Entry(message_log_frame)
-short_name_entry.grid(row=8, column=1, padx=5, pady=1, sticky=tk.EW)
+short_name_entry.grid(row=9, column=1, padx=5, pady=1, sticky=tk.EW)
 short_name_entry.insert(0, client_short_name)
 
 ### BUTTONS
@@ -1097,7 +1109,7 @@ save_preset_button.grid(row=7, column=2, padx=5, pady=1, sticky=tk.EW)
 
 ### INTERFACE WINDOW
 message_history = scrolledtext.ScrolledText(message_log_frame, wrap=tk.WORD)
-message_history.grid(row=9, column=0, columnspan=3, padx=5, pady=10, sticky=tk.NSEW)
+message_history.grid(row=10, column=0, columnspan=3, padx=5, pady=10, sticky=tk.NSEW)
 message_history.config(state=tk.DISABLED)
 
 if color_text:
@@ -1107,23 +1119,23 @@ if color_text:
 
 ### MESSAGE ENTRY
 enter_message_label = tk.Label(message_log_frame, text="Enter message:")
-enter_message_label.grid(row=10, column=0, padx=5, pady=1, sticky=tk.W)
+enter_message_label.grid(row=11, column=0, padx=5, pady=1, sticky=tk.W)
 
 message_entry = tk.Entry(message_log_frame)
-message_entry.grid(row=11, column=0, columnspan=3, padx=5, pady=1, sticky=tk.EW)
+message_entry.grid(row=12, column=0, columnspan=3, padx=5, pady=1, sticky=tk.EW)
 
 ### MESSAGE ACTION
 entry_dm_label = tk.Label(message_log_frame, text="DM to (click a node):")
-entry_dm_label.grid(row=12, column=1, padx=5, pady=1, sticky=tk.E)
+entry_dm_label.grid(row=13, column=1, padx=5, pady=1, sticky=tk.E)
 
 entry_dm = tk.Entry(message_log_frame)
-entry_dm.grid(row=12, column=2, padx=5, pady=1, sticky=tk.EW)
+entry_dm.grid(row=14, column=2, padx=5, pady=1, sticky=tk.EW)
 
 broadcast_button = tk.Button(message_log_frame, text="Broadcast Message", command=lambda: publish_message(broadcast_id))
-broadcast_button.grid(row=13, column=0, padx=5, pady=15, sticky=tk.EW)
+broadcast_button.grid(row=14, column=0, padx=5, pady=15, sticky=tk.EW)
 
 dm_button = tk.Button(message_log_frame, text="Direct Message", command=lambda: direct_message(entry_dm.get()))
-dm_button.grid(row=13, column=2, padx=5, pady=15, sticky=tk.EW)
+dm_button.grid(row=14, column=2, padx=5, pady=15, sticky=tk.EW)
 
 
 ### NODE LIST
