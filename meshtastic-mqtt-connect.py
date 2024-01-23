@@ -983,7 +983,7 @@ paned_window.paneconfigure(node_info_frame)
 
 root.grid_rowconfigure(0, weight=1)
 root.grid_columnconfigure(0, weight=1)
-message_log_frame.grid_rowconfigure(9, weight=1)
+message_log_frame.grid_rowconfigure(10, weight=1)
 message_log_frame.grid_columnconfigure(1, weight=1)
 message_log_frame.grid_columnconfigure(2, weight=1)
 node_info_frame.grid_rowconfigure(0, weight=1)
