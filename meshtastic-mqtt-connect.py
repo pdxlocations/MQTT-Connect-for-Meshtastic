@@ -26,11 +26,12 @@ import json
 import re
 
 #### Debug Options
-debug = True
+debug = False
 print_service_envelope = False
 print_message_packet = False
 print_text_message = False
 print_node_info =  False
+print_telemetry = True
 print_failed_encryption_packet = False
 print_position_report = False
 color_text = False
@@ -255,7 +256,7 @@ presets = load_presets_from_file()
 
 #################################
 # Receive Messages
-    
+
 def on_message(client, userdata, msg):
     # if debug: print("on_message")
     se = mqtt_pb2.ServiceEnvelope()
@@ -299,12 +300,60 @@ def on_message(client, userdata, msg):
         if record_locations:
             maybe_store_position_in_db(getattr(mp, "from"), pos)
 
-    # elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
-    #     env = telemetry_pb2.EnvironmentMetrics()
-    #     env.ParseFromString(mp.decoded.payload)
-    #     print (f"{env.temperature}, {env.relative_humidity}")
-    #     print(env)
-        
+    elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
+        env = telemetry_pb2.Telemetry()
+        env.ParseFromString(mp.decoded.payload)
+        # Device Metrics
+        battery_level = env.device_metrics.battery_level
+        voltage = round(env.device_metrics.voltage, 2)
+        channel_utilization = int(env.device_metrics.channel_utilization)
+        air_util_tx = int(env.device_metrics.air_util_tx)
+        # Environment Metrics
+        temperature = round(env.environment_metrics.temperature, 2)
+        relative_humidity = round(env.environment_metrics.relative_humidity, 0)
+        barometric_pressure = round(env.environment_metrics.barometric_pressure, 2)
+        gas_resistance = env.environment_metrics.gas_resistance
+        # Power Metrics
+            # TODO
+        # Air Quality Metrics
+            # TODO
+
+        if print_telemetry: 
+            # Dictionary of variables with labels
+            device_metrics_dict = {
+                'Battery Level': battery_level,
+                'Voltage': voltage,
+                'Channel Utilization': channel_utilization,
+                'Air Utilization': air_util_tx
+            }
+
+            environment_metrics_dict = {
+                'Temp': temperature,
+                'Humidity': relative_humidity,
+                'Pressure': barometric_pressure,
+                'Gas Resistance': gas_resistance
+            }
+
+            device_metrics_string = "from: " + get_short_name_by_id(getattr(mp, "from")) + ", "
+            environment_metrics_string = "from: " + get_short_name_by_id(getattr(mp, "from")) + ", "
+
+            # Loop through the dictionary and append non-empty values to the string
+            for label, value in device_metrics_dict.items():
+                if value is not None:
+                    device_metrics_string += f"{label}: {value}, "
+
+            for label, value in environment_metrics_dict.items():
+                if value is not None:
+                    environment_metrics_string += f"{label}: {value}, "
+
+            # Remove the trailing comma and space
+            device_metrics_string = device_metrics_string.rstrip(", ")
+            environment_metrics_string = environment_metrics_string.rstrip(", ")
+
+            # Print or use the final string
+            print(device_metrics_string)
+            print(environment_metrics_string)
+
 
 def decode_encrypted(mp):
         
@@ -329,7 +378,7 @@ def decode_encrypted(mp):
         except Exception as e:
 
             if print_message_packet: print(f"failed to decrypt: \n{mp}")
-            print(f"*** Decryption failed: {str(e)}")
+            if debug: print(f"*** Decryption failed: {str(e)}")
             return
 
 
