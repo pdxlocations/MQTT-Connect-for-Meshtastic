@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.5.0 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.5.1 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -33,7 +33,7 @@ print_text_message = False
 print_node_info =  False
 print_telemetry = True
 print_failed_encryption_packet = False
-print_position_report = False
+print_position_report = True
 color_text = False
 display_encrypted_emoji = True
 display_dm_emoji = True
@@ -308,39 +308,36 @@ def on_message(client, userdata, msg):
     elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
         env = telemetry_pb2.Telemetry()
         env.ParseFromString(mp.decoded.payload)
+
         # Device Metrics
-        battery_level = env.device_metrics.battery_level
-        voltage = round(env.device_metrics.voltage, 2)
-        channel_utilization = int(env.device_metrics.channel_utilization)
-        air_util_tx = int(env.device_metrics.air_util_tx)
+        device_metrics_dict = {
+            'Battery Level': env.device_metrics.battery_level,
+            'Voltage': round(env.device_metrics.voltage, 2),
+            'Channel Utilization': round(env.device_metrics.channel_utilization, 1),
+            'Air Utilization': round(env.device_metrics.air_util_tx, 1)
+        }
         # Environment Metrics
-        temperature = round(env.environment_metrics.temperature, 2)
-        relative_humidity = round(env.environment_metrics.relative_humidity, 0)
-        barometric_pressure = round(env.environment_metrics.barometric_pressure, 2)
-        gas_resistance = round(env.environment_metrics.gas_resistance, 2)
+        environment_metrics_dict = {
+            'Temp': round(env.environment_metrics.temperature, 2),
+            'Humidity': round(env.environment_metrics.relative_humidity, 0),
+            'Pressure': round(env.environment_metrics.barometric_pressure, 2),
+            'Gas Resistance': round(env.environment_metrics.gas_resistance, 2)
+        }
         # Power Metrics
             # TODO
         # Air Quality Metrics
             # TODO
 
         if print_telemetry: 
-            # Dictionary of variables with labels
-            device_metrics_dict = {
-                'Battery Level': battery_level,
-                'Voltage': voltage,
-                'Channel Utilization': channel_utilization,
-                'Air Utilization': air_util_tx
-            }
 
-            environment_metrics_dict = {
-                'Temp': temperature,
-                'Humidity': relative_humidity,
-                'Pressure': barometric_pressure,
-                'Gas Resistance': gas_resistance
-            }
+            device_metrics_string = "From: " + get_short_name_by_id(getattr(mp, "from")) + ", "
+            environment_metrics_string = "From: " + get_short_name_by_id(getattr(mp, "from")) + ", "
 
-            device_metrics_string = "from: " + get_short_name_by_id(getattr(mp, "from")) + ", "
-            environment_metrics_string = "from: " + get_short_name_by_id(getattr(mp, "from")) + ", "
+            # Only use metrics that are non-zero
+            has_device_metrics = True
+            has_environment_metrics = True
+            has_device_metrics = all(value != 0 for value in device_metrics_dict.values())
+            has_environment_metrics = all(value != 0 for value in environment_metrics_dict.values())
 
             # Loop through the dictionary and append non-empty values to the string
             for label, value in device_metrics_dict.items():
@@ -356,8 +353,10 @@ def on_message(client, userdata, msg):
             environment_metrics_string = environment_metrics_string.rstrip(", ")
 
             # Print or use the final string
-            print(device_metrics_string)
-            print(environment_metrics_string)
+            if has_device_metrics:
+                print(device_metrics_string)
+            if has_environment_metrics:
+                print(environment_metrics_string)
 
 
 def decode_encrypted(mp):
@@ -685,12 +684,21 @@ def maybe_store_nodeinfo_in_db(info):
 
 
 def maybe_store_position_in_db(node_id, position):
-    if print_position_report:
-        print(f"Position report for: {get_short_name_by_id(node_id)}")
-        print(position)
+
 
     # Must have at least a lat/lon
     if position.latitude_i != 0 and position.longitude_i != 0:
+
+        if print_position_report:
+            print("From: " + get_short_name_by_id(node_id) +
+                ", lat: " + str(position.latitude_i) +
+                ", lon: " + str(position.longitude_i) +
+                ", alt: " + str(position.altitude) +
+                ", PDOP: " + str(position.PDOP) +
+                ", speed: " + str(position.ground_speed) +
+                ", track: " + str(position.ground_track) +
+                ", sats: " + str(position.sats_in_view))
+
         # Convert from integer lat/lon format to decimal format.
         latitude = position.latitude_i * 1e-7
         longitude = position.longitude_i * 1e-7
