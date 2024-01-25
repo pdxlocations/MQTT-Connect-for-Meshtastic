@@ -1,16 +1,27 @@
 import sqlite3
 import folium
+import re
 from statistics import mean
 
+mqtt_broker = 'mqtt.meshtastic.org'
 channel = 'LongFast'
 
+def sanitize_string(input_str):
+    # Check if the string starts with a letter (a-z, A-Z) or an underscore (_)
+    if not re.match(r'^[a-zA-Z_]', input_str):
+        # If not, add "_"
+        input_str = '_' + input_str
+
+    # Replace special characters with underscores (for database tables)
+    sanitized_str = re.sub(r'[^a-zA-Z0-9_]', '_', input_str)
+    return sanitized_str
+
+table = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_positions"
 # Connect to SQLite database
 conn = sqlite3.connect('mmc.db')
 cursor = conn.cursor()
 
 # Fetch latitude, longitude, and short_name data from the database
-
-table = channel + '_positions'
 cursor.execute(f'SELECT latitude, longitude, short_name FROM {table};')
 data = cursor.fetchall()
 

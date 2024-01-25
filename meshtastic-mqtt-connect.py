@@ -142,7 +142,7 @@ def get_short_name_by_id(user_id):
 def sanitize_string(input_str):
     # Check if the string starts with a letter (a-z, A-Z) or an underscore (_)
     if not re.match(r'^[a-zA-Z_]', input_str):
-        # If not, add "t_"
+        # If not, add "_"
         input_str = '_' + input_str
 
     # Replace special characters with underscores (for database tables)
