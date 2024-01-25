@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.5.1 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.5.2 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -1191,7 +1191,7 @@ entry_dm_label = tk.Label(message_log_frame, text="DM to (click a node):")
 entry_dm_label.grid(row=13, column=1, padx=5, pady=1, sticky=tk.E)
 
 entry_dm = tk.Entry(message_log_frame)
-entry_dm.grid(row=14, column=2, padx=5, pady=1, sticky=tk.EW)
+entry_dm.grid(row=13, column=2, padx=5, pady=1, sticky=tk.EW)
 
 broadcast_button = tk.Button(message_log_frame, text="Broadcast Message", command=lambda: publish_message(broadcast_id))
 broadcast_button.grid(row=14, column=0, padx=5, pady=15, sticky=tk.EW)
