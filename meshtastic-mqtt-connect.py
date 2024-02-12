@@ -1212,7 +1212,7 @@ nodeinfo_window.config(state=tk.DISABLED)
 ############################
 # Main Threads
 
-client = mqtt.Client(client_id="", clean_session=True, userdata=None)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id="", clean_session=True, userdata=None)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message

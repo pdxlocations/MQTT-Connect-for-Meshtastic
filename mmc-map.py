@@ -17,6 +17,7 @@ def sanitize_string(input_str):
     return sanitized_str
 
 table = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_positions"
+
 # Connect to SQLite database
 conn = sqlite3.connect('mmc.db')
 cursor = conn.cursor()
