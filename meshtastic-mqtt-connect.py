@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.5.3 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.5.4 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -31,9 +31,9 @@ print_service_envelope = False
 print_message_packet = False
 print_text_message = False
 print_node_info =  False
-print_telemetry = True
+print_telemetry = False
 print_failed_encryption_packet = False
-print_position_report = True
+print_position_report = False
 color_text = False
 display_encrypted_emoji = True
 display_dm_emoji = True
@@ -81,6 +81,9 @@ broadcast_id = 4294967295
 db_file_path = "mmc.db"
 presets_file_path = "presets.json"
 presets = {}
+db_cursor = None
+db_connection = None
+
 
 #################################
 # Program Base Functions
@@ -929,7 +932,7 @@ def disconnect_mqtt():
         update_gui("Already disconnected", tag="info")
 
 
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, reason_code, properties):
 
     set_topic()
     
@@ -938,7 +941,7 @@ def on_connect(client, userdata, flags, rc):
         if client.is_connected():
             print("client is connected")
     
-    if rc == 0:
+    if reason_code == 0:
         load_message_history_from_db()
         if debug: print(f"Subscribe Topic is: {subscribe_topic}")
         client.subscribe(subscribe_topic)
@@ -951,9 +954,9 @@ def on_connect(client, userdata, flags, rc):
         update_gui(message, tag="info")
     
 
-def on_disconnect(client, userdata, rc):
+def on_disconnect(client, userdata, flags, reason_code, properties):
     if debug: print("on_disconnect")
-    if rc != 0:
+    if reason_code != 0:
         message = f"{current_time()} >>> Disconnected from MQTT broker with result code {str(rc)}"
         update_gui(message, tag="info")
 
@@ -1212,7 +1215,7 @@ nodeinfo_window.config(state=tk.DISABLED)
 ############################
 # Main Threads
 
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id="", clean_session=True, userdata=None)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="", clean_session=True, userdata=None)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
