@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.5.4 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.6.0 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -117,7 +117,7 @@ def generate_hash(name, key):
 
 def get_short_name_by_id(user_id):
     try:
-        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_nodeinfo"
+        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
     
@@ -443,7 +443,7 @@ def process_message(mp, text_payload, is_encrypted):
 def message_exists(mp):
     if debug: print("message_exists")
     try:
-        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_messages"
+        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_messages"
 
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
@@ -613,17 +613,17 @@ def setup_db():
         db_cursor = db_connection.cursor()
 
     # Create a table if it doesn't exist
-    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_nodeinfo"
+    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
     query = f'CREATE TABLE IF NOT EXISTS {table_name} (user_id TEXT, long_name TEXT, short_name TEXT)'
     db_cursor.execute(query)
 
     # Create a new table for storing messages
-    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_messages"
+    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_messages"
     query = f'CREATE TABLE IF NOT EXISTS {table_name} (timestamp TEXT,sender TEXT,content TEXT,message_id TEXT, is_encrypted INTEGER)'
     db_cursor.execute(query)
 
     # Create a new table for storing positions
-    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_positions"
+    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_positions"
     query = f'CREATE TABLE IF NOT EXISTS {table_name} (node_id TEXT,short_name TEXT,timestamp TEXT,latitude REAL,longitude REAL)'
     db_cursor.execute(query)
 
@@ -635,7 +635,7 @@ def maybe_store_nodeinfo_in_db(info):
     if debug:
         print("node info packet received: Checking for existing entry in DB")
 
-    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_nodeinfo"
+    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
 
     try:
         with sqlite3.connect(db_file_path) as db_connection:
@@ -717,7 +717,7 @@ def maybe_store_position_in_db(node_id, position):
         # Convert timestamp to datetime for database use
         timestamp = datetime.fromtimestamp(mktime(timestamp))
 
-        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_positions"
+        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_positions"
 
         try:
             with sqlite3.connect(db_file_path) as db_connection:
@@ -757,7 +757,7 @@ def insert_message_to_db(time, sender_short_name, text_payload, message_id, is_e
     if debug:
         print("insert_message_to_db")
 
-    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_messages"
+    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_messages"
 
     try:
         with sqlite3.connect(db_file_path) as db_connection:
@@ -780,7 +780,7 @@ def load_message_history_from_db():
     if debug:
         print("load_message_history_from_db")
 
-    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_messages"
+    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_messages"
 
     try:
         with sqlite3.connect(db_file_path) as db_connection:
@@ -813,7 +813,7 @@ def erase_nodedb():
     if debug:
         print("erase_nodedb")
 
-    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_nodeinfo"
+    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
 
     confirmed = tkinter.messagebox.askyesno("Confirmation", f"Are you sure you want to erase the database: {db_file_path} for channel {channel}?")
 
@@ -846,7 +846,7 @@ def erase_messagedb():
     if debug:
         print("erase_messagedb")
 
-    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_messages"
+    table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_messages"
 
     confirmed = tkinter.messagebox.askyesno("Confirmation", f"Are you sure you want to erase the message history of: {db_file_path} for channel {channel}?")
 
@@ -966,7 +966,7 @@ def on_disconnect(client, userdata, flags, reason_code, properties):
 
 def update_node_list():
     try:
-        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_nodeinfo"
+        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
 
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
