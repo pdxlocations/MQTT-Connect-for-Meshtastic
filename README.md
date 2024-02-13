@@ -5,7 +5,7 @@ Meshtastic MQTT Connect by pdxlocations
 
 Many thanks to and inspiration from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 
-Requires packages: Meshtastic, Paho-MQTT, Tkinter, cryptography which might be installed with:
+Requires packages: Meshtastic, Paho-MQTT v2, Tkinter, cryptography which might be installed with:
 
 `pip3 install meshtastic paho-mqtt tk cryptography`
 
