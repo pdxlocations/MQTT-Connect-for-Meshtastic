@@ -996,8 +996,8 @@ def on_connect(client, userdata, flags, reason_code, properties):
         update_gui(message, tag="info")
         send_node_info(broadcast_id)
 
-    if lon_entry.get() and lon_entry.get():
-        send_position(broadcast_id)
+        if lon_entry.get() and lon_entry.get():
+            send_position(broadcast_id)
 
     else:
         message = f"{current_time()} >>> Failed to connect to MQTT broker with result code {str(reason_code)}"
