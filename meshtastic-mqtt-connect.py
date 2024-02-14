@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.6.0 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.6.1 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -33,7 +33,7 @@ print_text_message = False
 print_node_info =  False
 print_telemetry = False
 print_failed_encryption_packet = False
-print_position_report = False
+print_position_report = True
 color_text = False
 display_encrypted_emoji = True
 display_dm_emoji = True
@@ -522,6 +522,53 @@ def send_node_info(destination_id):
         generate_mesh_packet(destination_id, encoded_message)
 
 
+def send_position(destination_id):
+
+    global node_number, broadcast_id
+    if debug: print("send_Position")
+
+    if not client.is_connected():
+        message =  current_time() + " >>> Connect to a broker before sending position"
+        update_gui(message, tag="info")
+    else:
+        if destination_id == broadcast_id:
+            message =  current_time() + " >>> Broadcast Position Packet"
+            update_gui(message, tag="info")
+        else:
+            if debug: print(f"Sending Position Packet to {str(destination_id)}")
+
+        node_number = int(node_number_entry.get())
+        pos_time = int(time.time())
+
+        latitude_str = lat_entry.get()
+        longitude_str = lon_entry.get()
+
+        latitude = float(latitude_str)  # Convert latitude to a float
+        longitude = float(longitude_str)  # Convert longitude to a float
+
+        latitude = latitude * 1e7
+        longitude = longitude * 1e7
+
+        latitude_i = int(latitude)
+        longitude_i = int(longitude)
+
+        position_payload = mesh_pb2.Position()
+        setattr(position_payload, "latitude_i", latitude_i)
+        setattr(position_payload, "longitude_i", longitude_i)
+        setattr(position_payload, "altitude", 420)
+        setattr(position_payload, "time", pos_time)
+
+        position_payload = position_payload.SerializeToString()
+
+        encoded_message = mesh_pb2.Data()
+        encoded_message.portnum = portnums_pb2.POSITION_APP
+        encoded_message.payload = position_payload
+        encoded_message.want_response = False
+
+        generate_mesh_packet(destination_id, encoded_message)
+
+
+
 def generate_mesh_packet(destination_id, encoded_message):
     mesh_packet = mesh_pb2.MeshPacket()
 
@@ -949,15 +996,18 @@ def on_connect(client, userdata, flags, reason_code, properties):
         update_gui(message, tag="info")
         send_node_info(broadcast_id)
 
+    if lon_entry.get() and lon_entry.get():
+        send_position(broadcast_id)
+
     else:
-        message = f"{current_time()} >>> Failed to connect to MQTT broker with result code {str(rc)}"
+        message = f"{current_time()} >>> Failed to connect to MQTT broker with result code {str(reason_code)}"
         update_gui(message, tag="info")
     
 
 def on_disconnect(client, userdata, flags, reason_code, properties):
     if debug: print("on_disconnect")
     if reason_code != 0:
-        message = f"{current_time()} >>> Disconnected from MQTT broker with result code {str(rc)}"
+        message = f"{current_time()} >>> Disconnected from MQTT broker with result code {str(reason_code)}"
         update_gui(message, tag="info")
 
 
@@ -1141,6 +1191,25 @@ short_name_entry = tk.Entry(message_log_frame)
 short_name_entry.grid(row=9, column=1, padx=5, pady=1, sticky=tk.EW)
 short_name_entry.insert(0, client_short_name)
 
+
+pos_frame = tk.Frame(message_log_frame)
+pos_frame.grid(row=10, column=0, columnspan=2, sticky=tk.W)
+
+lat_label = tk.Label(pos_frame, text="Lat:")
+lat_label.grid(row=10, column=0, padx=5, pady=1, sticky=tk.W)
+
+lat_entry = tk.Entry(pos_frame, width=5)
+lat_entry.grid(row=10, column=1, padx=5, pady=1, sticky=tk.EW)
+# lat_entry.insert(0, client_lat)
+
+lon_label = tk.Label(pos_frame, text="Lon:")
+lon_label.grid(row=10, column=3, padx=5, pady=1, sticky=tk.W)
+
+lon_entry = tk.Entry(pos_frame, width=5)
+lon_entry.grid(row=10, column=4, padx=5, pady=1, sticky=tk.EW)
+# lon_entry.insert(0, client_lon)
+
+
 ### BUTTONS
 
 preset_label = tk.Label(message_log_frame, text="Select Preset:")
@@ -1174,7 +1243,7 @@ save_preset_button.grid(row=7, column=2, padx=5, pady=1, sticky=tk.EW)
 
 ### INTERFACE WINDOW
 message_history = scrolledtext.ScrolledText(message_log_frame, wrap=tk.WORD)
-message_history.grid(row=10, column=0, columnspan=3, padx=5, pady=10, sticky=tk.NSEW)
+message_history.grid(row=11, column=0, columnspan=3, padx=5, pady=10, sticky=tk.NSEW)
 message_history.config(state=tk.DISABLED)
 
 if color_text:
@@ -1184,23 +1253,23 @@ if color_text:
 
 ### MESSAGE ENTRY
 enter_message_label = tk.Label(message_log_frame, text="Enter message:")
-enter_message_label.grid(row=11, column=0, padx=5, pady=1, sticky=tk.W)
+enter_message_label.grid(row=12, column=0, padx=5, pady=1, sticky=tk.W)
 
 message_entry = tk.Entry(message_log_frame)
-message_entry.grid(row=12, column=0, columnspan=3, padx=5, pady=1, sticky=tk.EW)
+message_entry.grid(row=13, column=0, columnspan=3, padx=5, pady=1, sticky=tk.EW)
 
 ### MESSAGE ACTION
 entry_dm_label = tk.Label(message_log_frame, text="DM to (click a node):")
-entry_dm_label.grid(row=13, column=1, padx=5, pady=1, sticky=tk.E)
+entry_dm_label.grid(row=14, column=1, padx=5, pady=1, sticky=tk.E)
 
 entry_dm = tk.Entry(message_log_frame)
-entry_dm.grid(row=13, column=2, padx=5, pady=1, sticky=tk.EW)
+entry_dm.grid(row=15, column=2, padx=5, pady=1, sticky=tk.EW)
 
 broadcast_button = tk.Button(message_log_frame, text="Broadcast Message", command=lambda: publish_message(broadcast_id))
-broadcast_button.grid(row=14, column=0, padx=5, pady=15, sticky=tk.EW)
+broadcast_button.grid(row=16, column=0, padx=5, pady=15, sticky=tk.EW)
 
 dm_button = tk.Button(message_log_frame, text="Direct Message", command=lambda: direct_message(entry_dm.get()))
-dm_button.grid(row=14, column=2, padx=5, pady=15, sticky=tk.EW)
+dm_button.grid(row=16, column=2, padx=5, pady=15, sticky=tk.EW)
 
 
 ### NODE LIST
@@ -1239,6 +1308,10 @@ def send_node_info_periodically():
     while True:
         if client.is_connected():
             send_node_info(broadcast_id)
+
+            if lon_entry.get() and lon_entry.get():
+                send_position(broadcast_id)
+
         time.sleep(node_info_interval_minutes * 60)  # Convert minutes to seconds
 
 node_info_timer = threading.Thread(target=send_node_info_periodically, daemon=True)
@@ -1255,6 +1328,8 @@ def on_exit():
 
 # Set the exit handler
 root.protocol("WM_DELETE_WINDOW", on_exit)
+
+
 
 # Start the main loop
 root.mainloop()
