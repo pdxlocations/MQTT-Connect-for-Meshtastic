@@ -70,6 +70,9 @@ node_number = int(node_name.replace("!", ""), 16)
 
 client_short_name = "MMC"
 client_long_name = "MQTTastic"
+lat = ""
+lon = ""
+alt = ""
 client_hw_model = 255
 node_info_interval_minutes = 15
 
@@ -156,7 +159,7 @@ def sanitize_string(input_str):
 # Handle Presets
     
 class Preset:
-    def __init__(self, name, broker, username, password, root_topic, channel, key, node_number, long_name, short_name):
+    def __init__(self, name, broker, username, password, root_topic, channel, key, node_number, long_name, short_name, lat, lon, alt):
         self.name = name
         self.broker = broker
         self.username = username
@@ -167,6 +170,9 @@ class Preset:
         self.node_number = node_number
         self.long_name = long_name
         self.short_name = short_name
+        self.lat = lat
+        self.lon = lon
+        self.alt = alt
 
     def to_dict(self):
         return {
@@ -179,7 +185,10 @@ class Preset:
             'key': self.key,
             'node_number': self.node_number,
             'long_name': self.long_name,
-            'short_name': self.short_name
+            'short_name': self.short_name,
+            'lat': self.lat,
+            'lon': self.lon,
+            'alt': self.alt
         }
     
 
@@ -224,6 +233,12 @@ def load_preset():
         long_name_entry.insert(0, selected_preset.long_name)
         short_name_entry.delete(0, tk.END)
         short_name_entry.insert(0, selected_preset.short_name)
+        lat_entry.delete(0, tk.END)
+        lat_entry.insert(0, selected_preset.lat)
+        lon_entry.delete(0, tk.END)
+        lon_entry.insert(0, selected_preset.lon)
+        alt_entry.delete(0, tk.END)
+        alt_entry.insert(0, selected_preset.alt)
 
     else:
         print(f"Error: Preset '{selected_preset_name}' not found.")
@@ -1183,7 +1198,6 @@ long_name_entry = tk.Entry(message_log_frame)
 long_name_entry.grid(row=8, column=1, padx=5, pady=1, sticky=tk.EW)
 long_name_entry.insert(0, client_long_name)
 
-
 short_name_label = tk.Label(message_log_frame, text="Short Name:")
 short_name_label.grid(row=9, column=0, padx=5, pady=1, sticky=tk.W)
 
@@ -1193,21 +1207,28 @@ short_name_entry.insert(0, client_short_name)
 
 
 pos_frame = tk.Frame(message_log_frame)
-pos_frame.grid(row=10, column=0, columnspan=2, sticky=tk.W)
+pos_frame.grid(row=10, column=0, columnspan=2, sticky=tk.EW)
 
 lat_label = tk.Label(pos_frame, text="Lat:")
-lat_label.grid(row=10, column=0, padx=5, pady=1, sticky=tk.W)
+lat_label.grid(row=10, column=0, padx=5, pady=1, sticky=tk.EW)
 
-lat_entry = tk.Entry(pos_frame, width=5)
+lat_entry = tk.Entry(pos_frame, width=8)
 lat_entry.grid(row=10, column=1, padx=5, pady=1, sticky=tk.EW)
-# lat_entry.insert(0, client_lat)
+lat_entry.insert(0, lat)
 
 lon_label = tk.Label(pos_frame, text="Lon:")
-lon_label.grid(row=10, column=3, padx=5, pady=1, sticky=tk.W)
+lon_label.grid(row=10, column=3, padx=5, pady=1, sticky=tk.EW)
 
-lon_entry = tk.Entry(pos_frame, width=5)
+lon_entry = tk.Entry(pos_frame, width=8)
 lon_entry.grid(row=10, column=4, padx=5, pady=1, sticky=tk.EW)
-# lon_entry.insert(0, client_lon)
+lon_entry.insert(0, lon)
+
+alt_label = tk.Label(pos_frame, text="Alt:")
+alt_label.grid(row=10, column=5, padx=5, pady=1, sticky=tk.EW)
+
+alt_entry = tk.Entry(pos_frame, width=8)
+alt_entry.grid(row=10, column=6, padx=5, pady=1, sticky=tk.EW)
+alt_entry.insert(0, alt)
 
 
 ### BUTTONS
