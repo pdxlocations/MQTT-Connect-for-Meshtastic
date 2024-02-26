@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.7.0 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.7.1 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -33,13 +33,13 @@ print_text_message = False
 print_node_info =  False
 print_telemetry = False
 print_failed_encryption_packet = False
-print_position_report = True
+print_position_report = False
 color_text = False
 display_encrypted_emoji = True
 display_dm_emoji = True
 display_private_dms = False
 
-record_locations = True
+record_locations = False
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
@@ -229,6 +229,7 @@ def load_preset():
         key_entry.insert(0, selected_preset.key)
         node_number_entry.delete(0, tk.END)
         node_number_entry.insert(0, selected_preset.node_number)
+        move_text_down()
         long_name_entry.delete(0, tk.END)
         long_name_entry.insert(0, selected_preset.long_name)
         short_name_entry.delete(0, tk.END)
@@ -1113,7 +1114,7 @@ paned_window.paneconfigure(node_info_frame)
 
 root.grid_rowconfigure(0, weight=1)
 root.grid_columnconfigure(0, weight=1)
-message_log_frame.grid_rowconfigure(10, weight=1)
+message_log_frame.grid_rowconfigure(11, weight=1)
 message_log_frame.grid_columnconfigure(1, weight=1)
 message_log_frame.grid_columnconfigure(2, weight=1)
 node_info_frame.grid_rowconfigure(0, weight=1)
@@ -1179,12 +1180,49 @@ key_entry.grid(row=5, column=1, padx=5, pady=1, sticky=tk.EW)
 key_entry.insert(0, key)
 
 
-node_number_label = tk.Label(message_log_frame, text="Node Number:")
-node_number_label.grid(row=6, column=0, padx=5, pady=1, sticky=tk.W)
 
-node_number_entry = tk.Entry(message_log_frame)
-node_number_entry.grid(row=6, column=1, padx=5, pady=1, sticky=tk.EW)
+
+def move_text_up():
+    text = node_id_entry.get()
+    text = int(text.replace("!", ""), 16)
+    node_number_entry.delete(0, "end")
+    node_number_entry.insert(0, text)
+
+def move_text_down():
+    text = node_number_entry.get()
+    text = '!{}'.format(hex(int(text))[2:])
+    node_id_entry.delete(0, "end")
+    node_id_entry.insert(0, text)
+
+
+
+id_frame = tk.Frame(message_log_frame)
+id_frame.grid(row=6, column=0, columnspan=2, sticky=tk.EW)
+
+id_frame.columnconfigure(0, weight=0)
+id_frame.columnconfigure(1, weight=0)  # Button columns don't expand
+id_frame.columnconfigure(2, weight=1)
+
+node_number_label = tk.Label(id_frame, text="Node Number:")
+node_number_label.grid(row=0, column=0, padx=5, pady=1, sticky=tk.W)
+
+up_button = tk.Button(id_frame, text="↑", command=move_text_up)
+up_button.grid(row=0, column=1)
+
+node_number_entry = tk.Entry(id_frame)
+node_number_entry.grid(row=0, column=2, padx=5, pady=1, sticky=tk.EW)
 node_number_entry.insert(0, node_number)
+
+
+node_id_label = tk.Label(id_frame, text="Node ID:")
+node_id_label.grid(row=1, column=0, padx=5, pady=1, sticky=tk.W)
+
+down_button = tk.Button(id_frame, text="↓", command=move_text_down)
+down_button.grid(row=1, column=1)
+
+node_id_entry = tk.Entry(id_frame)
+node_id_entry.grid(row=1, column=2, padx=5, pady=1, sticky=tk.EW)
+move_text_down()
 
 
 separator_label = tk.Label(message_log_frame, text="____________")
@@ -1210,55 +1248,59 @@ pos_frame = tk.Frame(message_log_frame)
 pos_frame.grid(row=10, column=0, columnspan=2, sticky=tk.EW)
 
 lat_label = tk.Label(pos_frame, text="Lat:")
-lat_label.grid(row=10, column=0, padx=5, pady=1, sticky=tk.EW)
+lat_label.grid(row=0, column=0, padx=5, pady=1, sticky=tk.EW)
 
 lat_entry = tk.Entry(pos_frame, width=8)
-lat_entry.grid(row=10, column=1, padx=5, pady=1, sticky=tk.EW)
+lat_entry.grid(row=0, column=1, padx=5, pady=1, sticky=tk.EW)
 lat_entry.insert(0, lat)
 
 lon_label = tk.Label(pos_frame, text="Lon:")
-lon_label.grid(row=10, column=3, padx=5, pady=1, sticky=tk.EW)
+lon_label.grid(row=0, column=3, padx=5, pady=1, sticky=tk.EW)
 
 lon_entry = tk.Entry(pos_frame, width=8)
-lon_entry.grid(row=10, column=4, padx=5, pady=1, sticky=tk.EW)
+lon_entry.grid(row=0, column=4, padx=5, pady=1, sticky=tk.EW)
 lon_entry.insert(0, lon)
 
 alt_label = tk.Label(pos_frame, text="Alt:")
-alt_label.grid(row=10, column=5, padx=5, pady=1, sticky=tk.EW)
+alt_label.grid(row=0, column=5, padx=5, pady=1, sticky=tk.EW)
 
 alt_entry = tk.Entry(pos_frame, width=8)
-alt_entry.grid(row=10, column=6, padx=5, pady=1, sticky=tk.EW)
+alt_entry.grid(row=0, column=6, padx=5, pady=1, sticky=tk.EW)
 alt_entry.insert(0, alt)
 
 
 ### BUTTONS
 
-preset_label = tk.Label(message_log_frame, text="Select Preset:")
+
+button_frame = tk.Frame(message_log_frame)
+button_frame.grid(row=0, column=2, rowspan=11, sticky=tk.NSEW)
+
+preset_label = tk.Label(button_frame, text="Select Preset:")
 preset_label.grid(row=0, column=2, padx=5, pady=1, sticky=tk.W)
 
-preset_var = tk.StringVar(message_log_frame)
+preset_var = tk.StringVar(button_frame)
 preset_var.set("None")
-preset_dropdown = tk.OptionMenu(message_log_frame, preset_var, "Default", *list(presets.keys()))
+preset_dropdown = tk.OptionMenu(button_frame, preset_var, "Default", *list(presets.keys()))
 preset_dropdown.grid(row=1, column=2, padx=5, pady=1, sticky=tk.EW)
 preset_var.trace_add("write", lambda *args: update_preset_dropdown())
 update_preset_dropdown()
 
-connect_button = tk.Button(message_log_frame, text="Connect", command=connect_mqtt)
+connect_button = tk.Button(button_frame, text="Connect", command=connect_mqtt)
 connect_button.grid(row=2, column=2, padx=5, pady=1, sticky=tk.EW)
 
-disconnect_button = tk.Button(message_log_frame, text="Disconnect", command=disconnect_mqtt)
+disconnect_button = tk.Button(button_frame, text="Disconnect", command=disconnect_mqtt)
 disconnect_button.grid(row=3, column=2, padx=5, pady=1, sticky=tk.EW)
 
-node_info_button = tk.Button(message_log_frame, text="Send NodeInfo", command=lambda: send_node_info(broadcast_id))
+node_info_button = tk.Button(button_frame, text="Send NodeInfo", command=lambda: send_node_info(broadcast_id))
 node_info_button.grid(row=4, column=2, padx=5, pady=1, sticky=tk.EW)
 
-erase_nodedb_button = tk.Button(message_log_frame, text="Erase NodeDB", command=erase_nodedb)
+erase_nodedb_button = tk.Button(button_frame, text="Erase NodeDB", command=erase_nodedb)
 erase_nodedb_button.grid(row=5, column=2, padx=5, pady=1, sticky=tk.EW)
 
-erase_messagedb_button = tk.Button(message_log_frame, text="Erase Message History", command=erase_messagedb)
+erase_messagedb_button = tk.Button(button_frame, text="Erase Message History", command=erase_messagedb)
 erase_messagedb_button.grid(row=6, column=2, padx=5, pady=1, sticky=tk.EW)
 
-save_preset_button = tk.Button(message_log_frame, text="Save Preset", command=save_preset)
+save_preset_button = tk.Button(button_frame, text="Save Preset", command=save_preset)
 save_preset_button.grid(row=7, column=2, padx=5, pady=1, sticky=tk.EW)
 
 
