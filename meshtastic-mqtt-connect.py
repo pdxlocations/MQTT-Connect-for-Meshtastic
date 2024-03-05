@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.7.1 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.7.2 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -200,7 +200,7 @@ def save_preset():
         return
 
     preset = Preset(name, mqtt_broker_entry.get(), mqtt_username_entry.get(), mqtt_password_entry.get(), root_topic_entry.get(),
-                    channel_entry.get(), key_entry.get(), node_number_entry.get(), long_name_entry.get(), short_name_entry.get())
+                    channel_entry.get(), key_entry.get(), node_number_entry.get(), long_name_entry.get(), short_name_entry.get(), lat_entry.get(), lon_entry.get(), alt_entry.get())
     presets[name] = preset  # Store the Preset object directly
     update_preset_dropdown()
     preset_var.set(name) 
