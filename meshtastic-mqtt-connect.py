@@ -942,10 +942,14 @@ def erase_messagedb():
     
 def connect_mqtt():
     if debug: print("connect_mqtt")
-    global mqtt_broker, mqtt_username, mqtt_password, root_topic, channel, node_number, db_file_path, key
+    global mqtt_broker, mqtt_port, mqtt_username, mqtt_password, root_topic, channel, node_number, db_file_path, key
     if not client.is_connected():
         try:
             mqtt_broker = mqtt_broker_entry.get()
+            if ':' in mqtt_broker:
+                mqtt_broker,mqtt_port = mqtt_broker.split(':')
+                mqtt_port = int(mqtt_port)
+
             mqtt_username = mqtt_username_entry.get()
             mqtt_password = mqtt_password_entry.get()
             root_topic = root_topic_entry.get()
