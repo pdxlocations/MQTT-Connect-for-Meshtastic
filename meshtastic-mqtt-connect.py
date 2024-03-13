@@ -1370,13 +1370,13 @@ entry_dm = tk.Entry(message_log_frame)
 entry_dm.grid(row=14, column=2, padx=5, pady=1, sticky=tk.EW)
 
 broadcast_button = tk.Button(message_log_frame, text="Broadcast Message", command=lambda: publish_message(broadcast_id))
-broadcast_button.grid(row=15, column=0, padx=5, pady=15, sticky=tk.EW)
+broadcast_button.grid(row=15, column=0, padx=5, pady=1, sticky=tk.EW)
 
 dm_button = tk.Button(message_log_frame, text="Direct Message", command=lambda: direct_message(entry_dm.get()))
-dm_button.grid(row=15, column=2, padx=5, pady=15, sticky=tk.EW)
+dm_button.grid(row=15, column=2, padx=5, pady=1, sticky=tk.EW)
 
 tr_button = tk.Button(message_log_frame, text="Trace Route", command=lambda: send_traceroute(entry_dm.get()))
-tr_button.grid(row=16, column=2, padx=5, pady=15, sticky=tk.EW)
+tr_button.grid(row=16, column=2, padx=5, pady=1, sticky=tk.EW)
 
 
 ### NODE LIST
