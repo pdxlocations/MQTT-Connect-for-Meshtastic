@@ -1401,7 +1401,7 @@ dm_button = tk.Button(message_log_frame, text="Direct Message", command=lambda: 
 dm_button.grid(row=15, column=2, padx=5, pady=1, sticky=tk.EW)
 
 tr_button = tk.Button(message_log_frame, text="Trace Route", command=lambda: send_traceroute(entry_dm.get()))
-tr_button.grid(row=16, column=2, padx=5, pady=1, sticky=tk.EW)
+tr_button.grid(row=16, column=2, padx=5, pady=(1,5), sticky=tk.EW)
 
 
 ### NODE LIST
