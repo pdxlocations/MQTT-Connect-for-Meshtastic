@@ -25,6 +25,8 @@ import base64
 import json
 import re
 
+import google.protobuf
+
 #### Debug Options
 debug = False
 print_service_envelope = False
@@ -347,6 +349,24 @@ def on_message(client, userdata, msg):
         # Air Quality Metrics
             # TODO
 
+    elif mp.decoded.portnum == portnums_pb2.TRACEROUTE_APP:
+        routeDiscovery = mesh_pb2.RouteDiscovery()
+        routeDiscovery.ParseFromString(mp.decoded.payload)
+
+        asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)
+                
+        print("Route traced:")
+        
+        routeStr = f"!{hex(getattr(mp, 'to'))[2:]}"
+            
+        if "route" in asDict:
+            for nodeNum in asDict["route"]:
+                routeStr += " --> " + f"!{hex(nodeNum)[2:]}"
+                routeStr += " --> " + f"!{hex(getattr(mp, 'from'))[2:]}"
+
+                update_gui(routeStr, tag="info")
+
+        
         if print_telemetry: 
 
             device_metrics_string = "From: " + get_short_name_by_id(getattr(mp, "from")) + ", "
@@ -500,6 +520,24 @@ def publish_message(destination_id):
     generate_mesh_packet(destination_id, encoded_message)
     message_entry.delete(0, 'end') 
 
+def send_traceroute(destination_id):
+    if debug: print("send_TraceRoute")
+
+    if not client.is_connected():
+        message =  current_time() + " >>> Connect to a broker before sending traceroute"
+        update_gui(message, tag="info")
+    else:
+        message =  current_time() + " >>> Sending Traceroute Packet"
+        update_gui(message, tag="info")
+
+        if debug: print(f"Sending Traceroute Packet to {str(destination_id)}")
+
+        encoded_message = mesh_pb2.Data()
+        encoded_message.portnum = portnums_pb2.TRACEROUTE_APP
+        encoded_message.want_response = True
+
+        destination_id = int(destination_id[1:], 16)
+        generate_mesh_packet(destination_id, encoded_message)
 
 def send_node_info(destination_id):
 
@@ -1337,6 +1375,9 @@ broadcast_button.grid(row=15, column=0, padx=5, pady=15, sticky=tk.EW)
 
 dm_button = tk.Button(message_log_frame, text="Direct Message", command=lambda: direct_message(entry_dm.get()))
 dm_button.grid(row=15, column=2, padx=5, pady=15, sticky=tk.EW)
+
+tr_button = tk.Button(message_log_frame, text="Trace Route", command=lambda: send_traceroute(entry_dm.get()))
+tr_button.grid(row=16, column=2, padx=5, pady=15, sticky=tk.EW)
 
 
 ### NODE LIST
