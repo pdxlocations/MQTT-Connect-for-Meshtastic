@@ -361,9 +361,8 @@ def on_message(client, userdata, msg):
             
         if "route" in asDict:
             for nodeNum in asDict["route"]:
-                routeStr += " --> " + f"!{hex(nodeNum)[2:]}"
-                routeStr += " --> " + f"!{hex(getattr(mp, 'from'))[2:]}"
-
+                routeStr += " --> " + get_short_name_by_id(nodeNum)
+                routeStr += " --> " + get_short_name_by_id(getattr(mp, 'from'))
                 update_gui(routeStr, tag="info")
 
         
