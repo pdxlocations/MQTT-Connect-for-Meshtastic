@@ -357,7 +357,7 @@ def on_message(client, userdata, msg):
                 
         if debug: print("Route traced:")
         
-        routeStr = f"!{hex(getattr(mp, 'to'))[2:]}"
+        routeStr = get_short_name_by_id(getattr(mp, 'to'))
             
         if "route" in asDict:
             for nodeNum in asDict["route"]:
