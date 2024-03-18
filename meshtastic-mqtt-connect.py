@@ -362,8 +362,8 @@ def on_message(client, userdata, msg):
         if "route" in asDict:
             for nodeNum in asDict["route"]:
                 routeStr += " --> " + get_short_name_by_id(nodeNum)
-                routeStr += " --> " + get_short_name_by_id(getattr(mp, 'from'))
-                update_gui(routeStr, tag="info")
+        routeStr += " --> " + get_short_name_by_id(getattr(mp, 'from'))
+        update_gui(routeStr, tag="info")
 
         
         if print_telemetry: 
