@@ -429,6 +429,11 @@ def process_message(mp, text_payload, is_encrypted):
     if not message_exists(mp):
         from_node = getattr(mp, "from")
         to_node = getattr(mp, "to")
+
+        # Needed for ACK
+        message_id = getattr(mp, "id")
+        want_ack = getattr(mp, "want_ack")
+        
         sender_short_name = get_name_by_id("short", from_node)
         receiver_short_name = get_name_by_id("short", to_node)
         string = ""
@@ -437,6 +442,8 @@ def process_message(mp, text_payload, is_encrypted):
         if to_node == node_number:
             string = f"{current_time()} DM from {sender_short_name}: {text_payload}"
             if display_dm_emoji: string = string[:9] + dm_emoji + string[9:]
+            if want_ack == True:
+                send_ack(from_node, message_id)
 
         elif from_node == node_number and to_node != broadcast_id:
             string = f"{current_time()} DM to {receiver_short_name}: {text_payload}"
@@ -628,7 +635,7 @@ def generate_mesh_packet(destination_id, encoded_message):
     setattr(mesh_packet, "from", node_number)
     mesh_packet.id = random.getrandbits(32)
     mesh_packet.to = destination_id
-    mesh_packet.want_ack = False
+    mesh_packet.want_ack = True
     mesh_packet.channel = generate_hash(channel, key)
     mesh_packet.hop_limit = 3
 
@@ -668,38 +675,17 @@ def encrypt_message(channel, key, mesh_packet, encoded_message):
 
     return encrypted_bytes
 
+def send_ack(destination_id, message_id):
+    if debug: print("Sending ACK")
 
-def send_ack():
-    ## TODO
-    """
-    meshtastic_MeshPacket *p = router->allocForSending();
-    p->decoded.portnum = meshtastic_PortNum_ROUTING_APP;
-    p->decoded.payload.size =
-        pb_encode_to_bytes(p->decoded.payload.bytes, sizeof(p->decoded.payload.bytes), &meshtastic_Routing_msg, &c);
+    encoded_message = mesh_pb2.Data()
+    encoded_message.portnum = portnums_pb2.ROUTING_APP
+    encoded_message.request_id = message_id
+    encoded_message.payload = b"\030\000"
 
-    p->priority = meshtastic_MeshPacket_Priority_ACK;
-
-    p->hop_limit = config.lora.hop_limit; // Flood ACK back to original sender
-    p->to = to;
-    p->decoded.request_id = idFrom;
-    p->channel = chIndex;
+    # TODO: need to implement priority ACK
     
-    /* Ack/naks are sent with very high priority to ensure that retransmission
-    stops as soon as possible */
-    meshtastic_MeshPacket_Priority_ACK = 120,
-
-    /* This packet is being sent as a reliable message, we would prefer it to arrive at the destination.
-    We would like to receive a ack packet in response.
-    Broadcasts messages treat this flag specially: Since acks for broadcasts would
-    rapidly flood the channel, the normal ack behavior is suppressed.
-    Instead, the original sender listens to see if at least one node is rebroadcasting this packet (because naive flooding algorithm).
-    If it hears that the odds (given typical LoRa topologies) the odds are very high that every node should eventually receive the message.
-    So FloodingRouter.cpp generates an implicit ack which is delivered to the original sender.
-    If after some time we don't hear anyone rebroadcast our packet, we will timeout and retransmit, using the regular resend logic.
-    Note: This flag is normally sent in a flag bit in the header when sent over the wire */
-    bool want_ack;
-
-    """
+    generate_mesh_packet(destination_id, encoded_message)
 
 
 #################################
