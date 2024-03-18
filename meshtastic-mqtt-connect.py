@@ -353,18 +353,19 @@ def on_message(client, userdata, msg):
             # TODO
 
     elif mp.decoded.portnum == portnums_pb2.TRACEROUTE_APP:
-        routeDiscovery = mesh_pb2.RouteDiscovery()
-        routeDiscovery.ParseFromString(mp.decoded.payload)
+        if mp.decoded.payload:
+            routeDiscovery = mesh_pb2.RouteDiscovery()
+            routeDiscovery.ParseFromString(mp.decoded.payload)
  
-        asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)    
+            asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)    
 
-        if debug: print("Route traced:")
-        routeStr = get_name_by_id("long", getattr(mp, 'to'))
-        if "route" in asDict:
-            for nodeNum in asDict["route"]:
-                routeStr += " --> " + get_name_by_id("long", nodeNum)
-        routeStr += " --> " + get_name_by_id("long", getattr(mp, 'from'))
-        update_gui(routeStr, tag="info")
+            if debug: print("Route traced:")
+            routeStr = get_name_by_id("long", getattr(mp, 'to'))
+            if "route" in asDict:
+                for nodeNum in asDict["route"]:
+                     routeStr += " --> " + get_name_by_id("long", nodeNum)
+            routeStr += " --> " + get_name_by_id("long", getattr(mp, 'from'))
+            update_gui(routeStr, tag="info")
 
         if print_telemetry: 
 
