@@ -120,7 +120,7 @@ def generate_hash(name, key):
     result = h_name ^ h_key
     return result
 
-def get_short_name_by_id(user_id):
+def get_name_by_id(type, user_id):
     try:
         table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
         with sqlite3.connect(db_file_path) as db_connection:
@@ -129,8 +129,11 @@ def get_short_name_by_id(user_id):
             # Convert the user_id to hex and prepend '!'
             hex_user_id = '!' + hex(user_id)[2:]
 
-            # Fetch the short name based on the hex user ID
-            result = db_cursor.execute(f'SELECT short_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
+            # Fetch the name based on the hex user ID
+            if type is "long":
+                result = db_cursor.execute(f'SELECT long_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
+            if type is "short":
+                result = db_cursor.execute(f'SELECT short_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
 
             if result:
                 return result[0]
@@ -142,34 +145,7 @@ def get_short_name_by_id(user_id):
                 return f"Unknown User ({hex_user_id})"
     
     except sqlite3.Error as e:
-        print(f"SQLite error in get_short_name_by_id: {e}")
-    
-    finally:
-        db_connection.close()
-
-def get_long_name_by_id(user_id):
-    try:
-        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
-        with sqlite3.connect(db_file_path) as db_connection:
-            db_cursor = db_connection.cursor()
-    
-            # Convert the user_id to hex and prepend '!'
-            hex_user_id = '!' + hex(user_id)[2:]
-
-            # Fetch the long name based on the hex user ID
-            result = db_cursor.execute(f'SELECT long_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
-
-            if result:
-                return result[0]
-            # If we don't find a user id in the db, ask for an id
-            else:
-                if user_id != broadcast_id:
-                    if debug: print("didn't find user in db")
-                    send_node_info(user_id)  # DM unknown user a nodeinfo with want_response
-                return f"Unknown User ({hex_user_id})"
-    
-    except sqlite3.Error as e:
-        print(f"SQLite error in get_long_name_by_id: {e}")
+        print(f"SQLite error in get_name_by_id: {e}")
 
     finally:
         db_connection.close()
@@ -384,20 +360,20 @@ def on_message(client, userdata, msg):
                 
         if debug: print("Route traced:")
         
-        routeStr = get_long_name_by_id(getattr(mp, 'to'))
+        routeStr = get_name_by_id("long", getattr(mp, 'to'))
             
         if "route" in asDict:
             for nodeNum in asDict["route"]:
-                routeStr += " --> " + get_long_name_by_id(nodeNum)
-        routeStr += " --> " + get_long_name_by_id(getattr(mp, 'from'))
+                routeStr += " --> " + get_name_by_id("long", nodeNum)
+        routeStr += " --> " + get_name_by_id("long", getattr(mp, 'from'))
         update_gui(routeStr, tag="info")
 
 
         
         if print_telemetry: 
 
-            device_metrics_string = "From: " + get_short_name_by_id(getattr(mp, "from")) + ", "
-            environment_metrics_string = "From: " + get_short_name_by_id(getattr(mp, "from")) + ", "
+            device_metrics_string = "From: " + get_name_by_id("short", getattr(mp, "from")) + ", "
+            environment_metrics_string = "From: " + get_name_by_id("short", getattr(mp, "from")) + ", "
 
             # Only use metrics that are non-zero
             has_device_metrics = True
@@ -457,8 +433,8 @@ def process_message(mp, text_payload, is_encrypted):
     if not message_exists(mp):
         from_node = getattr(mp, "from")
         to_node = getattr(mp, "to")
-        sender_short_name = get_short_name_by_id(from_node)
-        receiver_short_name = get_short_name_by_id(to_node)
+        sender_short_name = get_name_by_id("short", from_node)
+        receiver_short_name = get_name_by_id("short", to_node)
         string = ""
         private_dm = False
 
@@ -821,7 +797,7 @@ def maybe_store_position_in_db(node_id, position):
     if position.latitude_i != 0 and position.longitude_i != 0:
 
         if print_position_report:
-            print("From: " + get_short_name_by_id(node_id) +
+            print("From: " + get_name_by_id("short", node_id) +
                 ", lat: " + str(position.latitude_i) +
                 ", lon: " + str(position.longitude_i) +
                 ", alt: " + str(position.altitude) +
@@ -859,7 +835,7 @@ def maybe_store_position_in_db(node_id, position):
                     db_cursor.execute(f'''
                         INSERT INTO {table_name} (node_id, short_name, timestamp, latitude, longitude)
                         VALUES (?, ?, ?, ?, ?)
-                    ''', (node_id, get_short_name_by_id(node_id), timestamp, latitude, longitude))
+                    ''', (node_id, get_name_by_id("short", node_id), timestamp, latitude, longitude))
                     db_connection.commit()
                     return
 
@@ -868,7 +844,7 @@ def maybe_store_position_in_db(node_id, position):
                         UPDATE {table_name}
                         SET short_name=?, timestamp=?, latitude=?, longitude=?
                         WHERE node_id=?
-                    ''', (get_short_name_by_id(node_id), timestamp, latitude, longitude, node_id))
+                    ''', (get_name_by_id("short", node_id), timestamp, latitude, longitude, node_id))
                     db_connection.commit()
                 else:
                     if debug:
