@@ -171,6 +171,9 @@ def get_long_name_by_id(user_id):
     except sqlite3.Error as e:
         print(f"SQLite error in get_long_name_by_id: {e}")
 
+    finally:
+        db_connection.close()
+
 def sanitize_string(input_str):
     # Check if the string starts with a letter (a-z, A-Z) or an underscore (_)
     if not re.match(r'^[a-zA-Z_]', input_str):
