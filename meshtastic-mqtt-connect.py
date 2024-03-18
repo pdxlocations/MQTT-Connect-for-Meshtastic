@@ -147,6 +147,30 @@ def get_short_name_by_id(user_id):
     finally:
         db_connection.close()
 
+def get_long_name_by_id(user_id):
+    try:
+        table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
+        with sqlite3.connect(db_file_path) as db_connection:
+            db_cursor = db_connection.cursor()
+    
+            # Convert the user_id to hex and prepend '!'
+            hex_user_id = '!' + hex(user_id)[2:]
+
+            # Fetch the long name based on the hex user ID
+            result = db_cursor.execute(f'SELECT long_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
+
+            if result:
+                return result[0]
+            # If we don't find a user id in the db, ask for an id
+            else:
+                if user_id != broadcast_id:
+                    if debug: print("didn't find user in db")
+                    send_node_info(user_id)  # DM unknown user a nodeinfo with want_response
+                return f"Unknown User ({hex_user_id})"
+    
+    except sqlite3.Error as e:
+        print(f"SQLite error in get_long_name_by_id: {e}")
+
 def sanitize_string(input_str):
     # Check if the string starts with a letter (a-z, A-Z) or an underscore (_)
     if not re.match(r'^[a-zA-Z_]', input_str):
@@ -357,13 +381,14 @@ def on_message(client, userdata, msg):
                 
         if debug: print("Route traced:")
         
-        routeStr = get_short_name_by_id(getattr(mp, 'to'))
+        routeStr = get_long_name_by_id(getattr(mp, 'to'))
             
         if "route" in asDict:
             for nodeNum in asDict["route"]:
                 routeStr += " --> " + get_short_name_by_id(nodeNum)
         routeStr += " --> " + get_short_name_by_id(getattr(mp, 'from'))
         update_gui(routeStr, tag="info")
+
 
         
         if print_telemetry: 
