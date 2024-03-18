@@ -130,9 +130,9 @@ def get_name_by_id(type, user_id):
             hex_user_id = '!' + hex(user_id)[2:]
 
             # Fetch the name based on the hex user ID
-            if type is "long":
+            if type == "long":
                 result = db_cursor.execute(f'SELECT long_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
-            if type is "short":
+            if type == "short":
                 result = db_cursor.execute(f'SELECT short_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
 
             if result:
@@ -355,21 +355,17 @@ def on_message(client, userdata, msg):
     elif mp.decoded.portnum == portnums_pb2.TRACEROUTE_APP:
         routeDiscovery = mesh_pb2.RouteDiscovery()
         routeDiscovery.ParseFromString(mp.decoded.payload)
+ 
+        asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)    
 
-        asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)
-                
         if debug: print("Route traced:")
-        
         routeStr = get_name_by_id("long", getattr(mp, 'to'))
-            
         if "route" in asDict:
             for nodeNum in asDict["route"]:
                 routeStr += " --> " + get_name_by_id("long", nodeNum)
         routeStr += " --> " + get_name_by_id("long", getattr(mp, 'from'))
         update_gui(routeStr, tag="info")
 
-
-        
         if print_telemetry: 
 
             device_metrics_string = "From: " + get_name_by_id("short", getattr(mp, "from")) + ", "
