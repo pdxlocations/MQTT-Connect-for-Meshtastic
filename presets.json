@@ -4,7 +4,7 @@
     "broker": "mqtt.meshtastic.org",
     "username": "meshdev",
     "password": "large4cats",
-    "root_topic": "msh/US/2/c/",
+    "root_topic": "msh/US/2/e/",
     "channel": "LongFast",
     "key": "AQ==",
     "node_number": "3126770193",

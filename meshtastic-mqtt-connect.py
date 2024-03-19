@@ -55,7 +55,7 @@ mqtt_broker = "mqtt.meshtastic.org"
 mqtt_port = 1883
 mqtt_username = "meshdev"
 mqtt_password = "large4cats"
-root_topic = "msh/US/2/c/"
+root_topic = "msh/US/2/e/"
 channel = "LongFast"
 key = "AQ=="
 
