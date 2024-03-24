@@ -141,7 +141,7 @@ def get_name_by_id(type, user_id):
             else:
                 if user_id != broadcast_id:
                     if debug: print("didn't find user in db")
-                    send_node_info(user_id)  # DM unknown user a nodeinfo with want_response
+                    send_node_info(user_id, want_response=True)  # DM unknown user a nodeinfo with want_response
                 return f"Unknown User ({hex_user_id})"
     
     except sqlite3.Error as e:
@@ -546,7 +546,7 @@ def send_traceroute(destination_id):
         destination_id = int(destination_id[1:], 16)
         generate_mesh_packet(destination_id, encoded_message)
 
-def send_node_info(destination_id):
+def send_node_info(destination_id, want_response):
 
     global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
     if debug: print("send_node_info")
@@ -578,7 +578,7 @@ def send_node_info(destination_id):
         encoded_message = mesh_pb2.Data()
         encoded_message.portnum = portnums_pb2.NODEINFO_APP
         encoded_message.payload = user_payload
-        encoded_message.want_response = True  # Request NodeInfo back
+        encoded_message.want_response = want_response  # Request NodeInfo back
 
         generate_mesh_packet(destination_id, encoded_message)
 
@@ -1037,7 +1037,7 @@ def on_connect(client, userdata, flags, reason_code, properties):
         client.subscribe(subscribe_topic)
         message = f"{current_time()} >>> Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
         update_gui(message, tag="info")
-        send_node_info(broadcast_id)
+        send_node_info(broadcast_id, want_response=False)
 
         if lon_entry.get() and lon_entry.get():
             send_position(broadcast_id)
@@ -1318,7 +1318,7 @@ connect_button.grid(row=2, column=2, padx=5, pady=1, sticky=tk.EW)
 disconnect_button = tk.Button(button_frame, text="Disconnect", command=disconnect_mqtt)
 disconnect_button.grid(row=3, column=2, padx=5, pady=1, sticky=tk.EW)
 
-node_info_button = tk.Button(button_frame, text="Send NodeInfo", command=lambda: send_node_info(broadcast_id))
+node_info_button = tk.Button(button_frame, text="Send NodeInfo", command=lambda: send_node_info(broadcast_id, want_response=False))
 node_info_button.grid(row=4, column=2, padx=5, pady=1, sticky=tk.EW)
 
 erase_nodedb_button = tk.Button(button_frame, text="Erase NodeDB", command=erase_nodedb)
@@ -1400,7 +1400,7 @@ mqtt_thread.start()
 def send_node_info_periodically():
     while True:
         if client.is_connected():
-            send_node_info(broadcast_id)
+            send_node_info(broadcast_id, want_response=False)
 
             if lon_entry.get() and lon_entry.get():
                 send_position(broadcast_id)
