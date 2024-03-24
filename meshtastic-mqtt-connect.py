@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.7.5 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.7.6 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -391,13 +391,12 @@ def on_message(client, userdata, msg):
             asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)    
 
             if debug: print("Route traced:")
-            routeStr = get_name_by_id("long", getattr(mp, 'to'))
+            route_string = get_name_by_id("long", getattr(mp, 'to'))
 
-            if "route" in asDict:
-                for nodeNum in asDict["route"]:
-                     routeStr += " --> " + get_name_by_id("long", nodeNum)
-            routeStr += " --> " + get_name_by_id("long", getattr(mp, 'from'))
-            update_gui(routeStr, tag="info")
+            for nodeNum in asDict["route"]:
+                    route_string += " --> " + get_name_by_id("long", nodeNum)
+            route_string += " --> " + get_name_by_id("long", getattr(mp, 'from'))
+            update_gui(route_string, tag="info")
 
 
 def decode_encrypted(mp):
