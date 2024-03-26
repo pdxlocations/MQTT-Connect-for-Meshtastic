@@ -640,6 +640,7 @@ def generate_mesh_packet(destination_id, encoded_message):
     mesh_packet.want_ack = False
     mesh_packet.channel = generate_hash(channel, key)
     mesh_packet.hop_limit = 3
+    mesh_packet.rx_time = int(time.time())
 
     if key == "":
         mesh_packet.decoded.CopyFrom(encoded_message)
