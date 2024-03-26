@@ -70,6 +70,9 @@ node_name = '!abcd' + random_hex_chars
 # Convert hex to int and remove '!'
 node_number = int(node_name.replace("!", ""), 16)
 
+# Initialize the global_message_id with a random value
+global_message_id = random.getrandbits(32)
+
 client_short_name = "MMC"
 client_long_name = "MQTTastic"
 lat = ""
@@ -634,12 +637,17 @@ def send_position(destination_id):
 def generate_mesh_packet(destination_id, encoded_message):
     mesh_packet = mesh_pb2.MeshPacket()
 
+    # Use the global message ID and increment it for the next call
+    mesh_packet.id = global_message_id
+    global_message_id += 1
+    
     setattr(mesh_packet, "from", node_number)
-    mesh_packet.id = random.getrandbits(32)
     mesh_packet.to = destination_id
     mesh_packet.want_ack = False
     mesh_packet.channel = generate_hash(channel, key)
     mesh_packet.hop_limit = 3
+    mesh_packet.rx_time = int(time.time())
+
 
     if key == "":
         mesh_packet.decoded.CopyFrom(encoded_message)
