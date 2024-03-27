@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.7.6 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.8.0 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -677,7 +677,7 @@ def generate_mesh_packet(destination_id, encoded_message):
     service_envelope.packet.CopyFrom(mesh_packet)
     service_envelope.channel_id = channel
     service_envelope.gateway_id = node_name
-    print (service_envelope)
+    # print (service_envelope)
 
     payload = service_envelope.SerializeToString()
     set_topic()
