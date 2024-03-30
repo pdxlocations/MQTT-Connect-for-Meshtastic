@@ -11,7 +11,7 @@ Powered by Meshtastic™ https://meshtastic.org/
 import tkinter as tk
 from tkinter import scrolledtext, simpledialog
 import paho.mqtt.client as mqtt
-from meshtastic import mesh_pb2, mqtt_pb2, portnums_pb2, telemetry_pb2
+from meshtastic import mesh_pb2, mqtt_pb2, portnums_pb2, telemetry_pb2, BROADCAST_NUM
 import random
 import threading
 import sqlite3
@@ -84,7 +84,6 @@ node_info_interval_minutes = 15
 ### Program variables
 
 default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
-broadcast_id = 4294967295
 db_file_path = "mmc.db"
 presets_file_path = "presets.json"
 presets = {}
@@ -157,7 +156,7 @@ def get_name_by_id(type, user_id):
                 return result[0]
             # If we don't find a user id in the db, ask for an id
             else:
-                if user_id != broadcast_id:
+                if user_id != BROADCAST_NUM:
                     if debug: print("didn't find user in db")
                     send_node_info(user_id, want_response=True)  # DM unknown user a nodeinfo with want_response
                 return f"Unknown User ({hex_user_id})"
@@ -465,10 +464,10 @@ def process_message(mp, text_payload, is_encrypted):
             if want_ack == True:
                 send_ack(from_node, message_id)
 
-        elif from_node == node_number and to_node != broadcast_id:
+        elif from_node == node_number and to_node != BROADCAST_NUM:
             string = f"{format_time(current_time())} DM to {receiver_short_name}: {text_payload}"
             
-        elif from_node != node_number and to_node != broadcast_id:
+        elif from_node != node_number and to_node != BROADCAST_NUM:
             if display_private_dms:
                 string = f"{format_time(current_time())} DM from {sender_short_name} to {receiver_short_name}: {text_payload}"
                 if display_dm_emoji: string = string[:9] + dm_emoji + string[9:]
@@ -567,14 +566,14 @@ def send_traceroute(destination_id):
 
 def send_node_info(destination_id, want_response):
 
-    global client_short_name, client_long_name, node_name, node_number, client_hw_model, broadcast_id
+    global client_short_name, client_long_name, node_name, node_number, client_hw_model, BROADCAST_NUM
     if debug: print("send_node_info")
 
     if not client.is_connected():
         message =  format_time(current_time()) + " >>> Connect to a broker before sending nodeinfo"
         update_gui(message, tag="info")
     else:
-        if destination_id == broadcast_id:
+        if destination_id == BROADCAST_NUM:
             message =  format_time(current_time()) + " >>> Broadcast NodeInfo Packet"
             update_gui(message, tag="info")
         else:
@@ -606,14 +605,14 @@ def send_node_info(destination_id, want_response):
 
 def send_position(destination_id):
 
-    global node_number, broadcast_id
+    global node_number, BROADCAST_NUM
     if debug: print("send_Position")
 
     if not client.is_connected():
         message =  format_time(current_time()) + " >>> Connect to a broker before sending position"
         update_gui(message, tag="info")
     else:
-        if destination_id == broadcast_id:
+        if destination_id == BROADCAST_NUM:
             message =  format_time(current_time()) + " >>> Broadcast Position Packet"
             update_gui(message, tag="info")
         else:
@@ -1063,10 +1062,10 @@ def on_connect(client, userdata, flags, reason_code, properties):
         client.subscribe(subscribe_topic)
         message = f"{format_time(current_time())} >>> Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
         update_gui(message, tag="info")
-        send_node_info(broadcast_id, want_response=False)
+        send_node_info(BROADCAST_NUM, want_response=False)
 
         if lon_entry.get() and lon_entry.get():
-            send_position(broadcast_id)
+            send_position(BROADCAST_NUM)
 
     else:
         message = f"{format_time(current_time())} >>> Failed to connect to MQTT broker with result code {str(reason_code)}"
@@ -1344,7 +1343,7 @@ connect_button.grid(row=2, column=2, padx=5, pady=1, sticky=tk.EW)
 disconnect_button = tk.Button(button_frame, text="Disconnect", command=disconnect_mqtt)
 disconnect_button.grid(row=3, column=2, padx=5, pady=1, sticky=tk.EW)
 
-node_info_button = tk.Button(button_frame, text="Send NodeInfo", command=lambda: send_node_info(broadcast_id, want_response=True))
+node_info_button = tk.Button(button_frame, text="Send NodeInfo", command=lambda: send_node_info(BROADCAST_NUM, want_response=True))
 node_info_button.grid(row=4, column=2, padx=5, pady=1, sticky=tk.EW)
 
 erase_nodedb_button = tk.Button(button_frame, text="Erase NodeDB", command=erase_nodedb)
@@ -1381,7 +1380,7 @@ entry_dm_label.grid(row=14, column=1, padx=5, pady=1, sticky=tk.E)
 entry_dm = tk.Entry(message_log_frame)
 entry_dm.grid(row=14, column=2, padx=5, pady=1, sticky=tk.EW)
 
-broadcast_button = tk.Button(message_log_frame, text="Broadcast Message", command=lambda: publish_message(broadcast_id))
+broadcast_button = tk.Button(message_log_frame, text="Broadcast Message", command=lambda: publish_message(BROADCAST_NUM))
 broadcast_button.grid(row=15, column=0, padx=5, pady=1, sticky=tk.EW)
 
 dm_button = tk.Button(message_log_frame, text="Direct Message", command=lambda: direct_message(entry_dm.get()))
@@ -1426,10 +1425,10 @@ mqtt_thread.start()
 def send_node_info_periodically():
     while True:
         if client.is_connected():
-            send_node_info(broadcast_id, want_response=False)
+            send_node_info(BROADCAST_NUM, want_response=False)
 
             if lon_entry.get() and lon_entry.get():
-                send_position(broadcast_id)
+                send_position(BROADCAST_NUM)
 
         time.sleep(node_info_interval_minutes * 60)  # Convert minutes to seconds
 
