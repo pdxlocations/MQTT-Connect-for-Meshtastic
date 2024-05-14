@@ -1106,7 +1106,7 @@ def on_disconnect(client, userdata, flags, reason_code, properties):
         message = f"{format_time(current_time())} >>> Disconnected from MQTT broker with result code {str(reason_code)}"
         update_gui(message, tag="info")
         if auto_reconnect == True:
-            print("attempting to reconnect in " + str(auto_reconnect_delay) + " seconds")
+            print("attempting to reconnect in " + str(auto_reconnect_delay) + " second(s)")
             time.sleep(auto_reconnect_delay)
             connect_mqtt()
 
