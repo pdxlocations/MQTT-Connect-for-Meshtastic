@@ -28,23 +28,23 @@ import re
 import google.protobuf
 
 #### Debug Options
-debug = False
-auto_reconnect = False
+debug = True
+auto_reconnect = True
 auto_reconnect_delay = 1 # seconds
 print_service_envelope = False
 print_message_packet = False
-print_text_message = False
+print_text_message = True
 print_node_info =  False
-print_telemetry = False
+print_telemetry = True
 print_failed_encryption_packet = False
-print_position_report = False
-color_text = False
+print_position_report = True
+color_text = True
 display_encrypted_emoji = True
 display_dm_emoji = True
 display_lookup_button = False
 display_private_dms = False
 
-record_locations = False
+record_locations = True
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
@@ -348,7 +348,7 @@ def on_message(client, userdata, msg):
         pos = mesh_pb2.Position()
         pos.ParseFromString(mp.decoded.payload)
         if record_locations:
-            maybe_store_position_in_db(getattr(mp, "from"), pos)
+            maybe_store_position_in_db(getattr(mp, "from"), pos, getattr(mp, "rx_rssi"))
 
     elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
         env = telemetry_pb2.Telemetry()
@@ -359,14 +359,16 @@ def on_message(client, userdata, msg):
             'Battery Level': env.device_metrics.battery_level,
             'Voltage': round(env.device_metrics.voltage, 2),
             'Channel Utilization': round(env.device_metrics.channel_utilization, 1),
-            'Air Utilization': round(env.device_metrics.air_util_tx, 1)
+            'Air Utilization': round(env.device_metrics.air_util_tx, 1),
+            'RSSI': getattr(mp, "rx_rssi")
         }
         # Environment Metrics
         environment_metrics_dict = {
             'Temp': round(env.environment_metrics.temperature, 2),
             'Humidity': round(env.environment_metrics.relative_humidity, 0),
             'Pressure': round(env.environment_metrics.barometric_pressure, 2),
-            'Gas Resistance': round(env.environment_metrics.gas_resistance, 2)
+            'Gas Resistance': round(env.environment_metrics.gas_resistance, 2),
+            'RSSI': getattr(mp, "rx_rssi"),
         }
         # Power Metrics
             # TODO
@@ -496,7 +498,8 @@ def process_message(mp, text_payload, is_encrypted):
             "message": text_payload,
             "from": getattr(mp, "from"),
             "id": getattr(mp, "id"),
-            "to": getattr(mp, "to")
+            "to": getattr(mp, "to"),
+            "RSSI": getattr(mp, "rx_rssi")
         }
         if print_text_message: 
             print("")
@@ -802,19 +805,21 @@ def maybe_store_nodeinfo_in_db(info):
         db_connection.close()
 
 
-def maybe_store_position_in_db(node_id, position):
+def maybe_store_position_in_db(node_id, position, rssi=None):
     # Must have at least a lat/lon
     if position.latitude_i != 0 and position.longitude_i != 0:
 
+        rssi_string = ", RSSI: " + str(rssi) if rssi else ""
         if print_position_report:
             print("From: " + get_name_by_id("short", node_id) +
-                ", lat: " + str(position.latitude_i) +
-                ", lon: " + str(position.longitude_i) +
+                ", lat: " + str(round(position.latitude_i * 1e-7, 7)) +
+                ", lon: " + str(round(position.longitude_i * 1e-7, 7)) +
                 ", alt: " + str(position.altitude) +
                 ", PDOP: " + str(position.PDOP) +
                 ", speed: " + str(position.ground_speed) +
                 ", track: " + str(position.ground_track) +
-                ", sats: " + str(position.sats_in_view))
+                ", sats: " + str(position.sats_in_view) +
+                rssi_string)
 
         # Convert from integer lat/lon format to decimal format.
         latitude = position.latitude_i * 1e-7
@@ -1032,7 +1037,13 @@ def connect_mqtt():
 
         update_node_list()
     elif client.is_connected() and channel_entry.get() is not channel:
-        print ("Channel has changed, disconnect and reconnect")
+        print("Channel has changed, disconnect and reconnect")
+        if auto_reconnect:
+            print("auto_reconnect disconnecting from MQTT broker")
+            disconnect_mqtt()
+            time.sleep(auto_reconnect_delay)
+            print("auto_reconnect connecting to MQTT broker")
+            connect_mqtt()
 
     else:
         update_gui(f"{format_time(current_time())} >>> Already connected to {mqtt_broker}", tag="info")
