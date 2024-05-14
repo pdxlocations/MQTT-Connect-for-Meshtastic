@@ -28,23 +28,23 @@ import re
 import google.protobuf
 
 #### Debug Options
-debug = True
-auto_reconnect = True
+debug = False
+auto_reconnect = False
 auto_reconnect_delay = 1 # seconds
 print_service_envelope = False
 print_message_packet = False
-print_text_message = True
+print_text_message = False
 print_node_info =  False
-print_telemetry = True
+print_telemetry = False
 print_failed_encryption_packet = False
-print_position_report = True
-color_text = True
+print_position_report = False
+color_text = False
 display_encrypted_emoji = True
 display_dm_emoji = True
 display_lookup_button = False
 display_private_dms = False
 
-record_locations = True
+record_locations = False
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
@@ -640,10 +640,15 @@ def send_position(destination_id):
         latitude_i = int(latitude)
         longitude_i = int(longitude)
 
+        altitude_str = alt_entry.get()
+        altitude_units = 3.28084 if 'm' in altitude_str else 1.0
+        altitude_number_of_units = int(re.sub('[^0-9]','', altitude_str))
+        altitude_i = int(altitude_units * altitude_number_of_units)
+
         position_payload = mesh_pb2.Position()
         setattr(position_payload, "latitude_i", latitude_i)
         setattr(position_payload, "longitude_i", longitude_i)
-        setattr(position_payload, "altitude", 420)
+        setattr(position_payload, "altitude", altitude_i)
         setattr(position_payload, "time", pos_time)
 
         position_payload = position_payload.SerializeToString()
