@@ -650,7 +650,7 @@ def send_position(destination_id):
 
         altitude_str = alt_entry.get()
         altitude_units = 3.28084 if 'm' in altitude_str else 1.0
-        altitude_number_of_units = int(float(re.sub('[^0-9.]','', altitude_str)))
+        altitude_number_of_units = float(re.sub('[^0-9.]','', altitude_str))
         altitude_i = int(altitude_units * altitude_number_of_units)
 
         position_payload = mesh_pb2.Position()
