@@ -29,6 +29,8 @@ import google.protobuf
 
 #### Debug Options
 debug = False
+auto_reconnect = False
+auto_reconnect_delay = 1 # seconds
 print_service_envelope = False
 print_message_packet = False
 print_text_message = False
@@ -39,6 +41,7 @@ print_position_report = False
 color_text = False
 display_encrypted_emoji = True
 display_dm_emoji = True
+display_lookup_button = False
 display_private_dms = False
 
 record_locations = False
@@ -144,7 +147,7 @@ def get_name_by_id(type, user_id):
             db_cursor = db_connection.cursor()
     
             # Convert the user_id to hex and prepend '!'
-            hex_user_id = '!' + hex(user_id)[2:]
+            hex_user_id = '!%08x' % user_id
 
             # Fetch the name based on the hex user ID
             if type == "long":
@@ -153,11 +156,12 @@ def get_name_by_id(type, user_id):
                 result = db_cursor.execute(f'SELECT short_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
 
             if result:
+                if debug: print("found user in db: " + str(hex_user_id))
                 return result[0]
             # If we don't find a user id in the db, ask for an id
             else:
                 if user_id != BROADCAST_NUM:
-                    if debug: print("didn't find user in db")
+                    if debug: print("didn't find user in db: " + str(hex_user_id))
                     send_node_info(user_id, want_response=True)  # DM unknown user a nodeinfo with want_response
                 return f"Unknown User ({hex_user_id})"
     
@@ -1077,6 +1081,10 @@ def on_disconnect(client, userdata, flags, reason_code, properties):
     if reason_code != 0:
         message = f"{format_time(current_time())} >>> Disconnected from MQTT broker with result code {str(reason_code)}"
         update_gui(message, tag="info")
+        if auto_reconnect == True:
+            print("attempting to reconnect in " + str(auto_reconnect_delay) + " seconds")
+            time.sleep(auto_reconnect_delay)
+            connect_mqtt()
 
 
 ############################
@@ -1236,12 +1244,14 @@ key_entry.insert(0, key)
 
 def move_text_up():
     text = node_id_entry.get()
+    # TODO: Check if length of text is correct
     text = int(text.replace("!", ""), 16)
     node_number_entry.delete(0, "end")
     node_number_entry.insert(0, text)
 
 def move_text_down():
     text = node_number_entry.get()
+    # TODO: Fix length of hex string (always 8 bytes)
     text = '!{}'.format(hex(int(text))[2:])
     node_id_entry.delete(0, "end")
     node_id_entry.insert(0, text)
@@ -1387,8 +1397,11 @@ dm_button = tk.Button(message_log_frame, text="Direct Message", command=lambda: 
 dm_button.grid(row=15, column=2, padx=5, pady=1, sticky=tk.EW)
 
 tr_button = tk.Button(message_log_frame, text="Trace Route", command=lambda: send_traceroute(entry_dm.get()))
-tr_button.grid(row=16, column=2, padx=5, pady=(1,5), sticky=tk.EW)
+tr_button.grid(row=16, column=2, padx=5, pady=1 if display_lookup_button else (1,5), sticky=tk.EW)
 
+if display_lookup_button:
+    lookup_button = tk.Button(message_log_frame, text="Lookup", command=lambda: get_name_by_id("short", int(entry_dm.get()[1:], 16)))
+    lookup_button.grid(row=17, column=2, padx=5, pady=(1,5), sticky=tk.EW)
 
 ### NODE LIST
 nodeinfo_window = scrolledtext.ScrolledText(node_info_frame, wrap=tk.WORD, width=50)
