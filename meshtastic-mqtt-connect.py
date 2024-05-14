@@ -274,7 +274,7 @@ def load_preset():
 def update_preset_dropdown():
     # Update the preset dropdown menu
     preset_names = list(presets.keys())
-    menu = preset_dropdown['menu']
+    menu = preset_dropdown["menu"]
     menu.delete(0, 'end')
     for preset_name in preset_names:
         menu.add_command(label=preset_name, command=tk._setit(preset_var, preset_name, lambda *args: load_preset()))
@@ -354,22 +354,28 @@ def on_message(client, userdata, msg):
         env = telemetry_pb2.Telemetry()
         env.ParseFromString(mp.decoded.payload)
 
+        rssi = getattr(mp, "rx_rssi")
+
         # Device Metrics
         device_metrics_dict = {
             'Battery Level': env.device_metrics.battery_level,
             'Voltage': round(env.device_metrics.voltage, 2),
             'Channel Utilization': round(env.device_metrics.channel_utilization, 1),
-            'Air Utilization': round(env.device_metrics.air_util_tx, 1),
-            'RSSI': getattr(mp, "rx_rssi")
+            'Air Utilization': round(env.device_metrics.air_util_tx, 1)
         }
+        if rssi:
+           device_metrics_dict["RSSI"] = rssi
+
         # Environment Metrics
         environment_metrics_dict = {
             'Temp': round(env.environment_metrics.temperature, 2),
             'Humidity': round(env.environment_metrics.relative_humidity, 0),
             'Pressure': round(env.environment_metrics.barometric_pressure, 2),
-            'Gas Resistance': round(env.environment_metrics.gas_resistance, 2),
-            'RSSI': getattr(mp, "rx_rssi"),
+            'Gas Resistance': round(env.environment_metrics.gas_resistance, 2)
         }
+        if rssi:
+           environment_metrics_dict["RSSI"] = rssi
+
         # Power Metrics
             # TODO
         # Air Quality Metrics
@@ -498,9 +504,11 @@ def process_message(mp, text_payload, is_encrypted):
             "message": text_payload,
             "from": getattr(mp, "from"),
             "id": getattr(mp, "id"),
-            "to": getattr(mp, "to"),
-            "RSSI": getattr(mp, "rx_rssi")
+            "to": getattr(mp, "to")
         }
+        rssi = getattr(mp, "rx_rssi")
+        if rssi:
+            text["RSSI"] = rssi
         if print_text_message: 
             print("")
             print(text)
