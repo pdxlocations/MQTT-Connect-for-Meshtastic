@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Meshtastic MQTT Connect Version 0.8.0 by https://github.com/pdxlocations
+Meshtastic MQTT Connect Version 0.8.1 by https://github.com/pdxlocations
 
 Many thanks to and protos code from: https://github.com/arankwende/meshtastic-mqtt-client & https://github.com/joshpirihi/meshtastic-mqtt
 Encryption/Decryption help from: https://github.com/dstewartgo
@@ -425,7 +425,11 @@ def on_message(client, userdata, msg):
             for nodeNum in asDict["route"]:
                     route_string += " --> " + get_name_by_id("long", nodeNum)
             route_string += " --> " + get_name_by_id("long", getattr(mp, 'from'))
-            update_gui(route_string, tag="info")
+
+            if get_name_by_id("long", getattr(mp, 'to')) == long_name_entry.get(): # only display my trace routes
+
+                message =  format_time(current_time()) + " >>> Route: " + route_string
+                update_gui(message, tag="info")
 
 
 def decode_encrypted(mp):
