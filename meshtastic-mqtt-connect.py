@@ -274,7 +274,7 @@ def load_preset():
 def update_preset_dropdown():
     # Update the preset dropdown menu
     preset_names = list(presets.keys())
-    menu = preset_dropdown['menu']
+    menu = preset_dropdown["menu"]
     menu.delete(0, 'end')
     for preset_name in preset_names:
         menu.add_command(label=preset_name, command=tk._setit(preset_var, preset_name, lambda *args: load_preset()))
@@ -348,11 +348,13 @@ def on_message(client, userdata, msg):
         pos = mesh_pb2.Position()
         pos.ParseFromString(mp.decoded.payload)
         if record_locations:
-            maybe_store_position_in_db(getattr(mp, "from"), pos)
+            maybe_store_position_in_db(getattr(mp, "from"), pos, getattr(mp, "rx_rssi"))
 
     elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
         env = telemetry_pb2.Telemetry()
         env.ParseFromString(mp.decoded.payload)
+
+        rssi = getattr(mp, "rx_rssi")
 
         # Device Metrics
         device_metrics_dict = {
@@ -361,6 +363,9 @@ def on_message(client, userdata, msg):
             'Channel Utilization': round(env.device_metrics.channel_utilization, 1),
             'Air Utilization': round(env.device_metrics.air_util_tx, 1)
         }
+        if rssi:
+           device_metrics_dict["RSSI"] = rssi
+
         # Environment Metrics
         environment_metrics_dict = {
             'Temp': round(env.environment_metrics.temperature, 2),
@@ -368,6 +373,9 @@ def on_message(client, userdata, msg):
             'Pressure': round(env.environment_metrics.barometric_pressure, 2),
             'Gas Resistance': round(env.environment_metrics.gas_resistance, 2)
         }
+        if rssi:
+           environment_metrics_dict["RSSI"] = rssi
+
         # Power Metrics
             # TODO
         # Air Quality Metrics
@@ -502,6 +510,9 @@ def process_message(mp, text_payload, is_encrypted):
             "id": getattr(mp, "id"),
             "to": getattr(mp, "to")
         }
+        rssi = getattr(mp, "rx_rssi")
+        if rssi:
+            text["RSSI"] = rssi
         if print_text_message: 
             print("")
             print(text)
@@ -641,10 +652,15 @@ def send_position(destination_id):
         latitude_i = int(latitude)
         longitude_i = int(longitude)
 
+        altitude_str = alt_entry.get()
+        altitude_units = 1 / 3.28084 if 'ft' in altitude_str else 1.0
+        altitude_number_of_units = float(re.sub('[^0-9.]','', altitude_str))
+        altitude_i = int(altitude_units * altitude_number_of_units) # meters
+
         position_payload = mesh_pb2.Position()
         setattr(position_payload, "latitude_i", latitude_i)
         setattr(position_payload, "longitude_i", longitude_i)
-        setattr(position_payload, "altitude", 420)
+        setattr(position_payload, "altitude", altitude_i)
         setattr(position_payload, "time", pos_time)
 
         position_payload = position_payload.SerializeToString()
@@ -806,19 +822,21 @@ def maybe_store_nodeinfo_in_db(info):
         db_connection.close()
 
 
-def maybe_store_position_in_db(node_id, position):
+def maybe_store_position_in_db(node_id, position, rssi=None):
     # Must have at least a lat/lon
     if position.latitude_i != 0 and position.longitude_i != 0:
 
+        rssi_string = ", RSSI: " + str(rssi) if rssi else ""
         if print_position_report:
             print("From: " + get_name_by_id("short", node_id) +
-                ", lat: " + str(position.latitude_i) +
-                ", lon: " + str(position.longitude_i) +
+                ", lat: " + str(round(position.latitude_i * 1e-7, 7)) +
+                ", lon: " + str(round(position.longitude_i * 1e-7, 7)) +
                 ", alt: " + str(position.altitude) +
                 ", PDOP: " + str(position.PDOP) +
                 ", speed: " + str(position.ground_speed) +
                 ", track: " + str(position.ground_track) +
-                ", sats: " + str(position.sats_in_view))
+                ", sats: " + str(position.sats_in_view) +
+                rssi_string)
 
         # Convert from integer lat/lon format to decimal format.
         latitude = position.latitude_i * 1e-7
@@ -1036,7 +1054,13 @@ def connect_mqtt():
 
         update_node_list()
     elif client.is_connected() and channel_entry.get() is not channel:
-        print ("Channel has changed, disconnect and reconnect")
+        print("Channel has changed, disconnect and reconnect")
+        if auto_reconnect:
+            print("auto_reconnect disconnecting from MQTT broker")
+            disconnect_mqtt()
+            time.sleep(auto_reconnect_delay)
+            print("auto_reconnect connecting to MQTT broker")
+            connect_mqtt()
 
     else:
         update_gui(f"{format_time(current_time())} >>> Already connected to {mqtt_broker}", tag="info")
@@ -1086,7 +1110,7 @@ def on_disconnect(client, userdata, flags, reason_code, properties):
         message = f"{format_time(current_time())} >>> Disconnected from MQTT broker with result code {str(reason_code)}"
         update_gui(message, tag="info")
         if auto_reconnect == True:
-            print("attempting to reconnect in " + str(auto_reconnect_delay) + " seconds")
+            print("attempting to reconnect in " + str(auto_reconnect_delay) + " second(s)")
             time.sleep(auto_reconnect_delay)
             connect_mqtt()
 
