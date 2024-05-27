@@ -544,9 +544,12 @@ def message_exists(mp):
 
 def direct_message(destination_id):
     if debug: print("direct_message")
-    destination_id = int(destination_id[1:], 16)
-    publish_message(destination_id)
-
+    if destination_id:
+        try:
+            destination_id = int(destination_id[1:], 16)
+            publish_message(destination_id)
+        except Exception as e:
+            if debug: print(f"Error converting destination_id: {e}")
 
 def publish_message(destination_id):
     global key
@@ -560,9 +563,10 @@ def publish_message(destination_id):
         encoded_message = mesh_pb2.Data()
         encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP 
         encoded_message.payload = message_text.encode("utf-8")
-
-    generate_mesh_packet(destination_id, encoded_message)
-    message_entry.delete(0, 'end') 
+        generate_mesh_packet(destination_id, encoded_message)
+        message_entry.delete(0, 'end') 
+    else:
+        return
 
 def send_traceroute(destination_id):
     if debug: print("send_TraceRoute")
