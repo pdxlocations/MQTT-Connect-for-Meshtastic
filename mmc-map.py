@@ -4,6 +4,7 @@ import re
 from statistics import mean
 
 mqtt_broker = 'mqtt.meshtastic.org'
+topic = 'msh/US/2/e'
 channel = 'LongFast'
 
 def sanitize_string(input_str):
@@ -16,7 +17,7 @@ def sanitize_string(input_str):
     sanitized_str = re.sub(r'[^a-zA-Z0-9_]', '_', input_str)
     return sanitized_str
 
-table = sanitize_string(mqtt_broker) + "_" + sanitize_string(channel) + "_positions"
+table = sanitize_string(mqtt_broker) + "_" + sanitize_string(topic) + "_" + sanitize_string(channel) + "_positions"
 
 # Connect to SQLite database
 conn = sqlite3.connect('mmc.db')
