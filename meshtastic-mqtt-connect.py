@@ -8,10 +8,15 @@ Encryption/Decryption help from: https://github.com/dstewartgo
 Powered by Meshtastic™ https://meshtastic.org/
 """
 
+try:
+    from meshtastic.protobuf import mesh_pb2, mqtt_pb2, portnums_pb2, telemetry_pb2
+    from meshtastic import BROADCAST_NUM
+except ImportError:
+    from meshtastic import mesh_pb2, mqtt_pb2, portnums_pb2, telemetry_pb2, BROADCAST_NUM
+
 import tkinter as tk
 from tkinter import scrolledtext, simpledialog
 import paho.mqtt.client as mqtt
-from meshtastic import mesh_pb2, mqtt_pb2, portnums_pb2, telemetry_pb2, BROADCAST_NUM
 import random
 import threading
 import sqlite3
@@ -323,7 +328,7 @@ def on_message(client, userdata, msg):
             print ("Message Packet:")
             print(mp)
     except Exception as e:
-        print(f"*** ParseFromString: {str(e)}")
+        print(f"*** ServiceEnvelope: {str(e)}")
         return
     
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
@@ -331,28 +336,40 @@ def on_message(client, userdata, msg):
         is_encrypted=True
 
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
-        text_payload = mp.decoded.payload.decode("utf-8")
-        process_message(mp, text_payload, is_encrypted)
-        # print(f"{text_payload}")
+        try:
+            text_payload = mp.decoded.payload.decode("utf-8")
+            process_message(mp, text_payload, is_encrypted)
+            # print(f"{text_payload}")
+        except Exception as e:
+            print(f"*** TEXT_MESSAGE_APP: {str(e)}")
         
     elif mp.decoded.portnum == portnums_pb2.NODEINFO_APP:
         info = mesh_pb2.User()
-        info.ParseFromString(mp.decoded.payload)
-        maybe_store_nodeinfo_in_db(info)
-        if print_node_info:
-            print("")
-            print("NodeInfo:")
-            print(info)
+        try:
+            info.ParseFromString(mp.decoded.payload)
+            maybe_store_nodeinfo_in_db(info)
+            if print_node_info:
+                print("")
+                print("NodeInfo:")
+                print(info)
+        except Exception as e:
+            print(f"*** NODEINFO_APP: {str(e)}")
         
     elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
         pos = mesh_pb2.Position()
-        pos.ParseFromString(mp.decoded.payload)
-        if record_locations:
-            maybe_store_position_in_db(getattr(mp, "from"), pos, getattr(mp, "rx_rssi"))
+        try:
+            pos.ParseFromString(mp.decoded.payload)
+            if record_locations:
+                maybe_store_position_in_db(getattr(mp, "from"), pos, getattr(mp, "rx_rssi"))
+        except Exception as e:
+            print(f"*** POSITION_APP: {str(e)}")
 
     elif mp.decoded.portnum == portnums_pb2.TELEMETRY_APP:
         env = telemetry_pb2.Telemetry()
-        env.ParseFromString(mp.decoded.payload)
+        try:
+            env.ParseFromString(mp.decoded.payload)
+        except Exception as e:
+            print(f"*** TELEMETRY_APP: {str(e)}")
 
         rssi = getattr(mp, "rx_rssi")
 
