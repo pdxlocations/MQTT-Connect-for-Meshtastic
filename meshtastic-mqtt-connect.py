@@ -21,6 +21,7 @@ import random
 import threading
 import sqlite3
 import time
+import ssl
 from datetime import datetime
 from time import mktime
 import tkinter.messagebox
@@ -1042,6 +1043,10 @@ def erase_messagedb():
 # MQTT Server 
     
 def connect_mqtt():
+
+    if "tls_configured" not in connect_mqtt.__dict__:          #Persistent variable to remember if we've configured TLS yet
+        connect_mqtt.tls_configured = False
+
     if debug: print("connect_mqtt")
     global mqtt_broker, mqtt_port, mqtt_username, mqtt_password, root_topic, channel, node_number, db_file_path, key
     if not client.is_connected():
@@ -1073,6 +1078,10 @@ def connect_mqtt():
             setup_db()
 
             client.username_pw_set(mqtt_username, mqtt_password)
+            if mqtt_port == 8883 and connect_mqtt.tls_configured == False:
+                client.tls_set(ca_certs="cacert.pem", tls_version=ssl.PROTOCOL_TLSv1_2)
+                client.tls_insecure_set(False)
+                connect_mqtt.tls_configured = True
             client.connect(mqtt_broker, mqtt_port, 60)
             update_gui(f"{format_time(current_time())} >>> Connecting to MQTT broker at {mqtt_broker}...", tag="info")
 
