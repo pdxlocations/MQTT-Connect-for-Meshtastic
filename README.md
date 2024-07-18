@@ -14,9 +14,18 @@ There is an upstream bug in Tkinter where mouse clicks in the UI are not registe
 The current workaround is to move the application window away from it's opening state, and/or move the mouse slightly while clicking.
 This is a bug with TCL Version 8.6.12 and is apparently fixed in 8.6.13
 
-- Encryption and decryption is supported
+
+
 
 <img width="1113" alt="Screenshot 2024-02-16 at 2 46 56 PM" src="https://github.com/pdxlocations/Meshtastic-MQTT-Connect/assets/117498748/a7322f8d-0a31-4864-a558-aab725c5f92e">
+TLS is supported by entering a broker ending in `:8883` You will need to install a valid cacert.pem file.
+
+In the directory in which you run Meshtastic-MQTT-Connect run the following commands once:
+```sh
+pip3 install certifi
+ln -s `python3 -c 'import certifi ; print(certifi.where())'` cacert.pem
+```
+
 
 To view the interactive map you may need to install folium with
 
