@@ -664,8 +664,14 @@ def send_position(destination_id):
         latitude_str = lat_entry.get()
         longitude_str = lon_entry.get()
 
-        latitude = float(latitude_str)  # Convert latitude to a float
-        longitude = float(longitude_str)  # Convert longitude to a float
+        try:
+            latitude = float(latitude_str)  # Convert latitude to a float
+        except ValueError:
+            latitude = 0.0
+        try:
+            longitude = float(longitude_str)  # Convert longitude to a float
+        except ValueError:
+            longitude = 0.0
 
         latitude = latitude * 1e7
         longitude = longitude * 1e7
