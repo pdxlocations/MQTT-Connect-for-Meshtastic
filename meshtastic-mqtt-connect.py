@@ -23,6 +23,7 @@ import sqlite3
 import time
 import ssl
 import string
+import sys
 from datetime import datetime
 from time import mktime
 from typing import Optional
@@ -56,10 +57,11 @@ record_locations = False
 
 ### tcl upstream bug warning
 tcl = tk.Tcl()
-print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
-print("If < version 8.6.13, mouse clicks will only be recognized when the mouse is moving")    
-print("unless the window is moved from it's original position.")    
-print("The built in window auto-centering code may help with this\n\n")      
+if sys.platform.startswith('darwin'):
+    print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
+    print("If < version 8.6.13, mouse clicks will only be recognized when the mouse is moving")
+    print("unless the window is moved from it's original position.")
+    print("The built in window auto-centering code may help with this\n\n")
 
 ### Default settings
 mqtt_broker = "mqtt.meshtastic.org"
