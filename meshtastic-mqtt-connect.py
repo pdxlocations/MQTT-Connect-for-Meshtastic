@@ -22,8 +22,10 @@ import threading
 import sqlite3
 import time
 import ssl
+import string
 from datetime import datetime
 from time import mktime
+from typing import Optional
 import tkinter.messagebox
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
@@ -67,14 +69,33 @@ mqtt_password = "large4cats"
 root_topic = "msh/US/2/e/"
 channel = "LongFast"
 key = "AQ=="
+max_msg_len = 255			# https://meshtastic.discourse.group/t/length-of-text-messages/894 , https://meshtastic.discourse.group/t/meshtastic-lora-packet-size/7953/8
 
 key_emoji = "\U0001F511"
 encrypted_emoji = "\U0001F512" 
 dm_emoji = "\u2192"
 
+
+def is_valid_hex(test_value: str, minchars: Optional[int], maxchars: int) -> bool:
+    """Check if the provided string is valid hex.  Note that minchars and maxchars count INDIVIDUAL HEX LETTERS, inclusive.  Setting either to None means you don't care about that one."""
+
+    if test_value.startswith('!'):
+        test_value = test_value[1:]		#Ignore a leading exclamation point
+    valid_hex_return: bool = all(c in string.hexdigits for c in test_value)
+    if minchars is not None:
+        valid_hex_return = valid_hex_return and (minchars <= len(test_value))
+    if maxchars is not None:
+        valid_hex_return = valid_hex_return and (len(test_value) <= maxchars)
+
+    return valid_hex_return
+
+
 # Generate 4 random hexadecimal characters to create a unique node name
 random_hex_chars = ''.join(random.choices('0123456789abcdef', k=4))
 node_name = '!abcd' + random_hex_chars
+if not is_valid_hex(node_name, 8, 8):
+    print('Invalid generated node name: ' + str(node_name))
+    sys.exit(1)
 
 global_message_id = random.getrandbits(32)
 
@@ -330,6 +351,10 @@ def on_message(client, userdata, msg):
             print(mp)
     except Exception as e:
         print(f"*** ServiceEnvelope: {str(e)}")
+        return
+
+    if len(msg.payload) > max_msg_len:
+        if debug: print('Message too long: ' + str(len(msg.payload)) + ' bytes long, skipping.')
         return
     
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
