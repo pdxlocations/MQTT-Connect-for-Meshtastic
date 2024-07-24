@@ -14,9 +14,6 @@ try:
 except ImportError:
     from meshtastic import mesh_pb2, mqtt_pb2, portnums_pb2, telemetry_pb2, BROADCAST_NUM
 
-import tkinter as tk
-from tkinter import scrolledtext, simpledialog
-import paho.mqtt.client as mqtt
 import random
 import threading
 import sqlite3
@@ -27,18 +24,21 @@ import sys
 from datetime import datetime
 from time import mktime
 from typing import Optional
+import tkinter as tk
+from tkinter import scrolledtext, simpledialog
 import tkinter.messagebox
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
 import base64
 import json
 import re
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import paho.mqtt.client as mqtt
 
 import google.protobuf
 
 #### Debug Options
-debug = False
-auto_reconnect = False
+debug: bool = False
+auto_reconnect: bool = False
 auto_reconnect_delay = 1 # seconds
 print_service_envelope = False
 print_message_packet = False
@@ -74,7 +74,7 @@ key = "AQ=="
 max_msg_len = 255			# https://meshtastic.discourse.group/t/length-of-text-messages/894 , https://meshtastic.discourse.group/t/meshtastic-lora-packet-size/7953/8
 
 key_emoji = "\U0001F511"
-encrypted_emoji = "\U0001F512" 
+encrypted_emoji = "\U0001F512"
 dm_emoji = "\u2192"
 
 
@@ -119,26 +119,34 @@ default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
 db_file_path = "mmc.db"
 presets_file_path = "presets.json"
 presets = {}
-db_cursor = None
-db_connection = None
+#db_cursor = None	#db_cursor is not used globally - it's only used inside specific functions
+#db_connection = None	#db_connection is not used globally - it's only used inside specific functions
 
 
 #################################
 # Program Base Functions
-    
+
 def set_topic():
-    if debug: print("set_topic")
+    """?"""
+
+    if debug:
+        print("set_topic")
     global subscribe_topic, publish_topic, node_number, node_name
     node_name = '!' + hex(node_number)[2:]
     subscribe_topic = root_topic + channel + "/#"
     publish_topic = root_topic + channel + "/" + node_name
 
+
 def current_time():
+    """Return the current time as a string."""
+
     current_time_str = str(int(time.time()))
-    return(current_time_str)
+    return current_time_str
+
 
 def format_time(time_str):
-    # Convert the time string back to a datetime object
+    """Convert the time string back to a datetime object."""
+
     timestamp = int(time_str)
     time_dt = datetime.fromtimestamp(timestamp)
 
@@ -152,16 +160,22 @@ def format_time(time_str):
     else:
         # If it's not today, format as "DD/MM/YY H:M:S"
         time_formatted = time_dt.strftime("%d/%m/%y %H:%M:%S")
-    
+
     return time_formatted
 
+
 def xor_hash(data):
+    """Return XOR hash of all bytes in the provided string."""
+
     result = 0
     for char in data:
         result ^= char
     return result
 
+
 def generate_hash(name, key):
+    """?"""
+
     replaced_key = key.replace('-', '+').replace('_', '/')
     key_bytes = base64.b64decode(replaced_key.encode('utf-8'))
     h_name = xor_hash(bytes(name, 'utf-8'))
@@ -169,39 +183,48 @@ def generate_hash(name, key):
     result = h_name ^ h_key
     return result
 
-def get_name_by_id(type, user_id):
+
+def get_name_by_id(name_type: str, user_id):
+    """See if we have a (long or short, as specified by "name_type") name for the given user_id."""
+
+    # Convert the user_id to hex and prepend '!'
+    hex_user_id = '!%08x' % user_id
+
     try:
         table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
         with sqlite3.connect(db_file_path) as db_connection:
             db_cursor = db_connection.cursor()
-    
-            # Convert the user_id to hex and prepend '!'
-            hex_user_id = '!%08x' % user_id
 
             # Fetch the name based on the hex user ID
-            if type == "long":
+            if name_type == "long":
                 result = db_cursor.execute(f'SELECT long_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
-            if type == "short":
+            if name_type == "short":
                 result = db_cursor.execute(f'SELECT short_name FROM {table_name} WHERE user_id=?', (hex_user_id,)).fetchone()
 
             if result:
-                if debug: print("found user in db: " + str(hex_user_id))
+                if debug:
+                    print("found user in db: " + str(hex_user_id))
                 return result[0]
             # If we don't find a user id in the db, ask for an id
             else:
                 if user_id != BROADCAST_NUM:
-                    if debug: print("didn't find user in db: " + str(hex_user_id))
+                    if debug:
+                        print("didn't find user in db: " + str(hex_user_id))
                     send_node_info(user_id, want_response=True)  # DM unknown user a nodeinfo with want_response
                 return f"Unknown User ({hex_user_id})"
-    
+
     except sqlite3.Error as e:
         print(f"SQLite error in get_name_by_id: {e}")
 
     finally:
         db_connection.close()
 
+    return f"Unknown User ({hex_user_id})"
+
+
 def sanitize_string(input_str):
-    # Check if the string starts with a letter (a-z, A-Z) or an underscore (_)
+    """Check if the string starts with a letter (a-z, A-Z) or an underscore (_), and replace all non-alpha/numeric/underscore characters with underscores."""
+
     if not re.match(r'^[a-zA-Z_]', input_str):
         # If not, add "_"
         input_str = '_' + input_str
@@ -210,11 +233,16 @@ def sanitize_string(input_str):
     sanitized_str = re.sub(r'[^a-zA-Z0-9_]', '_', input_str)
     return sanitized_str
 
+
 #################################
 # Handle Presets
-    
+
 class Preset:
+    """Values needed to remember settings between runs."""
+
     def __init__(self, name, broker, username, password, root_topic, channel, key, node_number, long_name, short_name, lat, lon, alt):
+        """Pull in provided values."""
+
         self.name = name
         self.broker = broker
         self.username = username
@@ -230,6 +258,8 @@ class Preset:
         self.alt = alt
 
     def to_dict(self):
+        """Format provided values as a dictionary."""
+
         return {
             'name': self.name,
             'broker': self.broker,
@@ -245,10 +275,13 @@ class Preset:
             'lon': self.lon,
             'alt': self.alt
         }
-    
+
 
 def save_preset():
-    if debug: print("save_preset")
+    """Save preset values to disk."""
+
+    if debug:
+        print("save_preset")
     name = tkinter.simpledialog.askstring("Save Preset", "Enter preset name:")
         # Check if the user clicked Cancel
     if name is None:
@@ -258,18 +291,22 @@ def save_preset():
                     channel_entry.get(), key_entry.get(), node_number_entry.get(), long_name_entry.get(), short_name_entry.get(), lat_entry.get(), lon_entry.get(), alt_entry.get())
     presets[name] = preset  # Store the Preset object directly
     update_preset_dropdown()
-    preset_var.set(name) 
+    preset_var.set(name)
     save_presets_to_file()
 
-# Function to load the selected preset
+
 def load_preset():
-    if debug: print("load_preset")
+    """Function to load the selected preset."""
+
+    if debug:
+        print("load_preset")
     selected_preset_name = preset_var.get()
-    
+
     if selected_preset_name in presets:
         selected_preset = presets[selected_preset_name]
-        if debug: print(f"Loading preset: {selected_preset_name}")
-        
+        if debug:
+            print(f"Loading preset: {selected_preset_name}")
+
         mqtt_broker_entry.delete(0, tk.END)
         mqtt_broker_entry.insert(0, selected_preset.broker)
         mqtt_username_entry.delete(0, tk.END)
@@ -295,13 +332,13 @@ def load_preset():
         lon_entry.insert(0, selected_preset.lon)
         alt_entry.delete(0, tk.END)
         alt_entry.insert(0, selected_preset.alt)
-
     else:
         print(f"Error: Preset '{selected_preset_name}' not found.")
-    
+
 
 def update_preset_dropdown():
-    # Update the preset dropdown menu
+    """Update the preset dropdown menu."""
+
     preset_names = list(presets.keys())
     menu = preset_dropdown["menu"]
     menu.delete(0, 'end')
@@ -310,19 +347,26 @@ def update_preset_dropdown():
 
 
 def preset_var_changed(*args):
+    """?"""
+
     selected_option = preset_var.get()
     update_preset_dropdown()
     print(f"Selected Option: {selected_option}")
 
 
 def save_presets_to_file():
-    if debug: print("save_presets_to_file")
+    """?"""
+    if debug:
+        print("save_presets_to_file")
     with open(presets_file_path, "w") as file:
         json.dump({name: preset.__dict__ for name, preset in presets.items()}, file, indent=2)
 
 
 def load_presets_from_file():
-    if debug: print("load_presets_from_file")
+    """Load presets from a file."""
+
+    if debug:
+        print("load_presets_from_file")
     try:
         with open(presets_file_path, "r") as file:
             loaded_presets = json.load(file)
@@ -336,8 +380,11 @@ presets = load_presets_from_file()
 #################################
 # Receive Messages
 
-def on_message(client, userdata, msg):
-    # if debug: print("on_message")
+def on_message(client, userdata, msg):						# pylint: disable=unused-argument
+    """Callback function that accepts a meshtastic message from mqtt."""
+
+    # if debug:
+    #     print("on_message")
     se = mqtt_pb2.ServiceEnvelope()
     is_encrypted = False
     try:
@@ -347,7 +394,7 @@ def on_message(client, userdata, msg):
             print ("Service Envelope:")
             print (se)
         mp = se.packet
-        if print_message_packet: 
+        if print_message_packet:
             print ("")
             print ("Message Packet:")
             print(mp)
@@ -356,9 +403,10 @@ def on_message(client, userdata, msg):
         return
 
     if len(msg.payload) > max_msg_len:
-        if debug: print('Message too long: ' + str(len(msg.payload)) + ' bytes long, skipping.')
+        if debug:
+            print('Message too long: ' + str(len(msg.payload)) + ' bytes long, skipping.')
         return
-    
+
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
         decode_encrypted(mp)
         is_encrypted=True
@@ -370,7 +418,7 @@ def on_message(client, userdata, msg):
             # print(f"{text_payload}")
         except Exception as e:
             print(f"*** TEXT_MESSAGE_APP: {str(e)}")
-        
+
     elif mp.decoded.portnum == portnums_pb2.NODEINFO_APP:
         info = mesh_pb2.User()
         try:
@@ -382,7 +430,7 @@ def on_message(client, userdata, msg):
                 print(info)
         except Exception as e:
             print(f"*** NODEINFO_APP: {str(e)}")
-        
+
     elif mp.decoded.portnum == portnums_pb2.POSITION_APP:
         pos = mesh_pb2.Position()
         try:
@@ -425,8 +473,8 @@ def on_message(client, userdata, msg):
             # TODO
         # Air Quality Metrics
             # TODO
-        
-        if print_telemetry: 
+
+        if print_telemetry:
 
             device_metrics_string = "From: " + get_name_by_id("short", getattr(mp, "from")) + ", "
             environment_metrics_string = "From: " + get_name_by_id("short", getattr(mp, "from")) + ", "
@@ -456,15 +504,15 @@ def on_message(client, userdata, msg):
             if has_environment_metrics:
                 print(environment_metrics_string)
 
-
     elif mp.decoded.portnum == portnums_pb2.TRACEROUTE_APP:
         if mp.decoded.payload:
             routeDiscovery = mesh_pb2.RouteDiscovery()
             routeDiscovery.ParseFromString(mp.decoded.payload)
- 
-            asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)    
 
-            if debug: print("Route traced:")
+            asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)
+
+            if debug:
+                print("Route traced:")
             route_string = get_name_by_id("long", getattr(mp, 'to'))
 
             for nodeNum in asDict["route"]:
@@ -478,74 +526,83 @@ def on_message(client, userdata, msg):
 
 
 def decode_encrypted(mp):
-        
-        try:
-            # Convert key to bytes
-            key_bytes = base64.b64decode(key.encode('ascii'))
-      
-            nonce_packet_id = getattr(mp, "id").to_bytes(8, "little")
-            nonce_from_node = getattr(mp, "from").to_bytes(8, "little")
+    """Decrypt a meshtastic message."""
 
-            # Put both parts into a single byte array.
-            nonce = nonce_packet_id + nonce_from_node
+    try:
+        # Convert key to bytes
+        key_bytes = base64.b64decode(key.encode('ascii'))
 
-            cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
-            decryptor = cipher.decryptor()
-            decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
+        nonce_packet_id = getattr(mp, "id").to_bytes(8, "little")
+        nonce_from_node = getattr(mp, "from").to_bytes(8, "little")
 
-            data = mesh_pb2.Data()
-            data.ParseFromString(decrypted_bytes)
-            mp.decoded.CopyFrom(data)
+        # Put both parts into a single byte array.
+        nonce = nonce_packet_id + nonce_from_node
 
-        except Exception as e:
+        cipher = Cipher(algorithms.AES(key_bytes), modes.CTR(nonce), backend=default_backend())
+        decryptor = cipher.decryptor()
+        decrypted_bytes = decryptor.update(getattr(mp, "encrypted")) + decryptor.finalize()
 
-            if print_message_packet: print(f"failed to decrypt: \n{mp}")
-            if debug: print(f"*** Decryption failed: {str(e)}")
-            return
+        data = mesh_pb2.Data()
+        data.ParseFromString(decrypted_bytes)
+        mp.decoded.CopyFrom(data)
+
+    except Exception as e:
+        if print_message_packet:
+            print(f"failed to decrypt: \n{mp}")
+        if debug:
+            print(f"*** Decryption failed: {str(e)}")
+        #return		#Not needed, will automatically return
 
 
 def process_message(mp, text_payload, is_encrypted):
-    if debug: print("process_message")
+    """Process a single meshtastic text message."""
+
+    if debug:
+        print("process_message")
     if not message_exists(mp):
         from_node = getattr(mp, "from")
         to_node = getattr(mp, "to")
 
         # Needed for ACK
         message_id = getattr(mp, "id")
-        want_ack = getattr(mp, "want_ack")
-        
+        want_ack: bool = getattr(mp, "want_ack")
+
         sender_short_name = get_name_by_id("short", from_node)
         receiver_short_name = get_name_by_id("short", to_node)
-        string = ""
+        display_str = ""
         private_dm = False
 
         if to_node == node_number:
-            string = f"{format_time(current_time())} DM from {sender_short_name}: {text_payload}"
-            if display_dm_emoji: string = string[:9] + dm_emoji + string[9:]
-            if want_ack == True:
+            display_str = f"{format_time(current_time())} DM from {sender_short_name}: {text_payload}"
+            if display_dm_emoji:
+                display_str = display_str[:9] + dm_emoji + display_str[9:]
+            if want_ack is True:
                 send_ack(from_node, message_id)
 
         elif from_node == node_number and to_node != BROADCAST_NUM:
-            string = f"{format_time(current_time())} DM to {receiver_short_name}: {text_payload}"
-            
+            display_str = f"{format_time(current_time())} DM to {receiver_short_name}: {text_payload}"
+
         elif from_node != node_number and to_node != BROADCAST_NUM:
             if display_private_dms:
-                string = f"{format_time(current_time())} DM from {sender_short_name} to {receiver_short_name}: {text_payload}"
-                if display_dm_emoji: string = string[:9] + dm_emoji + string[9:]
+                display_str = f"{format_time(current_time())} DM from {sender_short_name} to {receiver_short_name}: {text_payload}"
+                if display_dm_emoji:
+                    display_str = display_str[:9] + dm_emoji + display_str[9:]
             else:
-                if debug: print("Private DM Ignored")
+                if debug:
+                    print("Private DM Ignored")
                 private_dm = True
-            
-        else:    
-            string = f"{format_time(current_time())} {sender_short_name}: {text_payload}"
+
+        else:
+            display_str = f"{format_time(current_time())} {sender_short_name}: {text_payload}"
 
         if is_encrypted and not private_dm:
             color="encrypted"
-            if display_encrypted_emoji: string = string[:9] + encrypted_emoji + string[9:]
+            if display_encrypted_emoji:
+                display_str = display_str[:9] + encrypted_emoji + display_str[9:]
         else:
             color="unencrypted"
         if not private_dm:
-            update_gui(string, text_widget=message_history, tag=color)
+            update_gui(display_str, text_widget=message_history, tag=color)
         m_id = getattr(mp, "id")
         insert_message_to_db(current_time(), sender_short_name, text_payload, m_id, is_encrypted)
 
@@ -558,15 +615,19 @@ def process_message(mp, text_payload, is_encrypted):
         rssi = getattr(mp, "rx_rssi")
         if rssi:
             text["RSSI"] = rssi
-        if print_text_message: 
+        if print_text_message:
             print("")
             print(text)
     else:
-        if debug: print("duplicate message ignored")
+        if debug:
+            print("duplicate message ignored")
 
-# check for message id in db, ignore duplicates
-def message_exists(mp):
-    if debug: print("message_exists")
+
+def message_exists(mp) -> bool:
+    """Check for message id in db, ignore duplicates."""
+
+    if debug:
+        print("message_exists")
     try:
         table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_messages"
 
@@ -584,21 +645,31 @@ def message_exists(mp):
     finally:
         db_connection.close()
 
+    return False
+
+
 #################################
 # Send Messages
 
 def direct_message(destination_id):
-    if debug: print("direct_message")
+    """Send a direct message."""
+
+    if debug:
+        print("direct_message")
     if destination_id:
         try:
             destination_id = int(destination_id[1:], 16)
             publish_message(destination_id)
         except Exception as e:
-            if debug: print(f"Error converting destination_id: {e}")
+            if debug:
+                print(f"Error converting destination_id: {e}")
 
 def publish_message(destination_id):
-    global key
-    if debug: print("publish_message")
+    """?"""
+
+    #global key		#Unused in this function
+    if debug:
+        print("publish_message")
 
     if not client.is_connected():
         connect_mqtt()
@@ -606,15 +677,19 @@ def publish_message(destination_id):
     message_text = message_entry.get()
     if message_text:
         encoded_message = mesh_pb2.Data()
-        encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP 
+        encoded_message.portnum = portnums_pb2.TEXT_MESSAGE_APP
         encoded_message.payload = message_text.encode("utf-8")
         generate_mesh_packet(destination_id, encoded_message)
-        message_entry.delete(0, 'end') 
-    else:
-        return
+        message_entry.delete(0, 'end')
+    #else:
+    #    return
+
 
 def send_traceroute(destination_id):
-    if debug: print("send_TraceRoute")
+    """Send traceroute request to destination_id."""
+
+    if debug:
+        print("send_TraceRoute")
 
     if not client.is_connected():
         message =  format_time(current_time()) + " >>> Connect to a broker before sending traceroute"
@@ -623,7 +698,8 @@ def send_traceroute(destination_id):
         message =  format_time(current_time()) + " >>> Sending Traceroute Packet"
         update_gui(message, tag="info")
 
-        if debug: print(f"Sending Traceroute Packet to {str(destination_id)}")
+        if debug:
+            print(f"Sending Traceroute Packet to {str(destination_id)}")
 
         encoded_message = mesh_pb2.Data()
         encoded_message.portnum = portnums_pb2.TRACEROUTE_APP
@@ -633,9 +709,13 @@ def send_traceroute(destination_id):
         generate_mesh_packet(destination_id, encoded_message)
 
 def send_node_info(destination_id, want_response):
+    """Send my node information to the specified destination."""
 
-    global client_short_name, client_long_name, node_name, node_number, client_hw_model, BROADCAST_NUM
-    if debug: print("send_node_info")
+    global node_number
+    #Following global variables not used in this function so they do not need to be global: client_short_name, client_long_name, 
+    #Following global variables used in this function but not modified, so do not need to be global: node_name, client_hw_model, BROADCAST_NUM
+    if debug:
+        print("send_node_info")
 
     if not client.is_connected():
         message =  format_time(current_time()) + " >>> Connect to a broker before sending nodeinfo"
@@ -645,10 +725,11 @@ def send_node_info(destination_id, want_response):
             message =  format_time(current_time()) + " >>> Broadcast NodeInfo Packet"
             update_gui(message, tag="info")
         else:
-            if debug: print(f"Sending NodeInfo Packet to {str(destination_id)}")
+            if debug:
+                print(f"Sending NodeInfo Packet to {str(destination_id)}")
 
         node_number = int(node_number_entry.get())
-        
+
         decoded_client_id = bytes(node_name, "utf-8")
         decoded_client_long = bytes(long_name_entry.get(), "utf-8")
         decoded_client_short = bytes(short_name_entry.get(), "utf-8")
@@ -671,10 +752,13 @@ def send_node_info(destination_id, want_response):
         generate_mesh_packet(destination_id, encoded_message)
 
 
-def send_position(destination_id):
+def send_position(destination_id) -> None:
+    """Send current position to destination_id (which can be a broadcast.)"""
 
-    global node_number, BROADCAST_NUM
-    if debug: print("send_Position")
+    global node_number
+    #Following global variables used in this function but not modified, so do not need to be global: BROADCAST_NUM
+    if debug:
+        print("send_Position")
 
     if not client.is_connected():
         message =  format_time(current_time()) + " >>> Connect to a broker before sending position"
@@ -684,7 +768,8 @@ def send_position(destination_id):
             message =  format_time(current_time()) + " >>> Broadcast Position Packet"
             update_gui(message, tag="info")
         else:
-            if debug: print(f"Sending Position Packet to {str(destination_id)}")
+            if debug:
+                print(f"Sending Position Packet to {str(destination_id)}")
 
         node_number = int(node_number_entry.get())
         pos_time = int(time.time())
@@ -730,13 +815,15 @@ def send_position(destination_id):
 
 
 def generate_mesh_packet(destination_id, encoded_message):
+    """Send a packet out over the mesh."""
+
     global global_message_id
     mesh_packet = mesh_pb2.MeshPacket()
 
     # Use the global message ID and increment it for the next call
     mesh_packet.id = global_message_id
     global_message_id += 1
-    
+
     setattr(mesh_packet, "from", node_number)
     mesh_packet.to = destination_id
     mesh_packet.want_ack = False
@@ -746,10 +833,12 @@ def generate_mesh_packet(destination_id, encoded_message):
 
     if key == "":
         mesh_packet.decoded.CopyFrom(encoded_message)
-        if debug: print("key is none")
+        if debug:
+            print("key is none")
     else:
         mesh_packet.encrypted = encrypt_message(channel, key, mesh_packet, encoded_message)
-        if debug: print("key present")
+        if debug:
+            print("key present")
 
     service_envelope = mqtt_pb2.ServiceEnvelope()
     service_envelope.packet.CopyFrom(mesh_packet)
@@ -764,7 +853,9 @@ def generate_mesh_packet(destination_id, encoded_message):
 
 
 def encrypt_message(channel, key, mesh_packet, encoded_message):
-    if debug: print("encrypt_message")
+    """Encrypt a message."""
+    if debug:
+        print("encrypt_message")
 
     mesh_packet.channel = generate_hash(channel, key)
     key_bytes = base64.b64decode(key.encode('ascii'))
@@ -783,7 +874,9 @@ def encrypt_message(channel, key, mesh_packet, encoded_message):
 
 
 def send_ack(destination_id, message_id):
-    if debug: print("Sending ACK")
+    "Return a meshtastic acknowledgement."""
+    if debug:
+        print("Sending ACK")
 
     encoded_message = mesh_pb2.Data()
     encoded_message.portnum = portnums_pb2.ROUTING_APP
@@ -795,25 +888,27 @@ def send_ack(destination_id, message_id):
 
 #################################
 # Database Handling
-        
+
 # Create database table for NodeDB & Messages
 def setup_db():
-    if debug: print("setup_db")
-    global db_connection
+    """Create the initial database and the nodeinfo, messages, and positions tables in it."""
+    if debug:
+        print("setup_db")
+    #global db_connection	#db_connection is not used globally - it's only used inside specific functions
     with sqlite3.connect(db_file_path) as db_connection:
         db_cursor = db_connection.cursor()
 
-    # Create a table if it doesn't exist
+    # Create the nodeinfo table for storing nodeinfos
     table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
     query = f'CREATE TABLE IF NOT EXISTS {table_name} (user_id TEXT, long_name TEXT, short_name TEXT)'
     db_cursor.execute(query)
 
-    # Create a new table for storing messages
+    # Create the messages table for storing messages
     table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_messages"
     query = f'CREATE TABLE IF NOT EXISTS {table_name} (timestamp TEXT,sender TEXT,content TEXT,message_id TEXT, is_encrypted INTEGER)'
     db_cursor.execute(query)
 
-    # Create a new table for storing positions
+    # Create the positions new table for storing positions
     table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_positions"
     query = f'CREATE TABLE IF NOT EXISTS {table_name} (node_id TEXT,short_name TEXT,timestamp TEXT,latitude REAL,longitude REAL)'
     db_cursor.execute(query)
@@ -823,6 +918,8 @@ def setup_db():
 
 
 def maybe_store_nodeinfo_in_db(info):
+    """Save nodeinfo in sqlite unless that record is already there."""
+
     if debug:
         print("node info packet received: Checking for existing entry in DB")
 
@@ -878,6 +975,8 @@ def maybe_store_nodeinfo_in_db(info):
 
 
 def maybe_store_position_in_db(node_id, position, rssi=None):
+    """Save position if we have no position for this node_id or the timestamp is newer than the record we have stored."""
+
     # Must have at least a lat/lon
     if position.latitude_i != 0 and position.longitude_i != 0:
 
@@ -945,6 +1044,8 @@ def maybe_store_position_in_db(node_id, position, rssi=None):
 
 
 def insert_message_to_db(time, sender_short_name, text_payload, message_id, is_encrypted):
+    """Save a meshtastic message to sqlite storage."""
+
     if debug:
         print("insert_message_to_db")
 
@@ -968,6 +1069,8 @@ def insert_message_to_db(time, sender_short_name, text_payload, message_id, is_e
 
 
 def load_message_history_from_db():
+    """Load previously stored messages from sqlite and display them."""
+
     if debug:
         print("load_message_history_from_db")
 
@@ -1002,6 +1105,8 @@ def load_message_history_from_db():
 
 
 def erase_nodedb():
+    """Erase all stored nodeinfo in sqlite and on display in the gui."""
+
     if debug:
         print("erase_nodedb")
 
@@ -1035,6 +1140,8 @@ def erase_nodedb():
 
 
 def erase_messagedb():
+    """Erase all stored messages in sqlite and on display in the gui."""
+
     if debug:
         print("erase_messagedb")
 
@@ -1067,14 +1174,16 @@ def erase_messagedb():
 
 
 #################################
-# MQTT Server 
-    
+# MQTT Server
+
 def connect_mqtt():
+    """Connect to the MQTT server."""
 
     if "tls_configured" not in connect_mqtt.__dict__:          #Persistent variable to remember if we've configured TLS yet
-        connect_mqtt.tls_configured = False
+        connect_mqtt.tls_configured: bool = False
 
-    if debug: print("connect_mqtt")
+    if debug:
+        print("connect_mqtt")
     global mqtt_broker, mqtt_port, mqtt_username, mqtt_password, root_topic, channel, node_number, db_file_path, key
     if not client.is_connected():
         try:
@@ -1091,7 +1200,8 @@ def connect_mqtt():
             key = key_entry.get()
 
             if key == "AQ==":
-                if debug: print("key is default, expanding to AES128")
+                if debug:
+                    print("key is default, expanding to AES128")
                 key = "1PG7OiApB1nwvP+rz05pAQ=="
 
             node_number = int(node_number_entry.get())  # Convert the input to an integer
@@ -1100,12 +1210,13 @@ def connect_mqtt():
             replaced_key = padded_key.replace('-', '+').replace('_', '/')
             key = replaced_key
 
-            if debug: print (f"padded & replaced key = {key}")
+            if debug:
+                print (f"padded & replaced key = {key}")
 
             setup_db()
 
             client.username_pw_set(mqtt_username, mqtt_password)
-            if mqtt_port == 8883 and connect_mqtt.tls_configured == False:
+            if mqtt_port == 8883 and connect_mqtt.tls_configured is False:
                 client.tls_set(ca_certs="cacert.pem", tls_version=ssl.PROTOCOL_TLSv1_2)
                 client.tls_insecure_set(False)
                 connect_mqtt.tls_configured = True
@@ -1130,7 +1241,10 @@ def connect_mqtt():
 
 
 def disconnect_mqtt():
-    if debug: print("disconnect_mqtt")
+    """Disconnect from the MQTT server."""
+
+    if debug:
+        print("disconnect_mqtt")
     if client.is_connected():
         client.disconnect()
         update_gui(f"{format_time(current_time())} >>> Disconnected from MQTT broker", tag="info")
@@ -1142,18 +1256,20 @@ def disconnect_mqtt():
         update_gui("Already disconnected", tag="info")
 
 
-def on_connect(client, userdata, flags, reason_code, properties):
+def on_connect(client, userdata, flags, reason_code, properties):		# pylint: disable=unused-argument
+    """?"""
 
     set_topic()
-    
-    if debug: print("on_connect")
-    if debug: 
+
+    if debug:
+        print("on_connect")
         if client.is_connected():
             print("client is connected")
-    
+
     if reason_code == 0:
         load_message_history_from_db()
-        if debug: print(f"Subscribe Topic is: {subscribe_topic}")
+        if debug:
+            print(f"Subscribe Topic is: {subscribe_topic}")
         client.subscribe(subscribe_topic)
         message = f"{format_time(current_time())} >>> Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
         update_gui(message, tag="info")
@@ -1165,14 +1281,17 @@ def on_connect(client, userdata, flags, reason_code, properties):
     else:
         message = f"{format_time(current_time())} >>> Failed to connect to MQTT broker with result code {str(reason_code)}"
         update_gui(message, tag="info")
-    
 
-def on_disconnect(client, userdata, flags, reason_code, properties):
-    if debug: print("on_disconnect")
+
+def on_disconnect(client, userdata, flags, reason_code, properties):		# pylint: disable=unused-argument
+    """?"""
+
+    if debug:
+        print("on_disconnect")
     if reason_code != 0:
         message = f"{format_time(current_time())} >>> Disconnected from MQTT broker with result code {str(reason_code)}"
         update_gui(message, tag="info")
-        if auto_reconnect == True:
+        if auto_reconnect is True:
             print("attempting to reconnect in " + str(auto_reconnect_delay) + " second(s)")
             time.sleep(auto_reconnect_delay)
             connect_mqtt()
@@ -1182,6 +1301,8 @@ def on_disconnect(client, userdata, flags, reason_code, properties):
 # GUI Functions
 
 def update_node_list():
+    """?"""
+
     try:
         table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
 
@@ -1210,25 +1331,33 @@ def update_node_list():
 
 
 def update_gui(text_payload, tag=None, text_widget=None):
+    """?"""
+
     text_widget = text_widget or message_history
-    if debug: print(f"updating GUI with: {text_payload}")
+    if debug:
+        print(f"updating GUI with: {text_payload}")
     text_widget.config(state=tk.NORMAL)
     text_widget.insert(tk.END, f"{text_payload}\n", tag)
     text_widget.config(state=tk.DISABLED)
     text_widget.yview(tk.END)
 
 
-def on_nodeinfo_enter(event):
-    # Change the cursor to a pointer when hovering over text
+def on_nodeinfo_enter(event):							# pylint: disable=unused-argument
+    """Change the cursor to a pointer when hovering over text."""
     nodeinfo_window.config(cursor="cross")
 
-def on_nodeinfo_leave(event):
-    # Change the cursor back to the default when leaving the widget
+
+def on_nodeinfo_leave(event):							# pylint: disable=unused-argument
+    """Change the cursor back to the default when leaving the widget."""
     nodeinfo_window.config(cursor="")
 
-def on_nodeinfo_click(event):
-    if debug: print("on_nodeinfo_click")
-    global to_id
+
+def on_nodeinfo_click(event):							# pylint: disable=unused-argument
+    """?"""
+
+    if debug:
+        print("on_nodeinfo_click")
+    #global to_id		#No global variable with that name any more
     # Get the index of the clicked position
     index = nodeinfo_window.index(tk.CURRENT)
 
@@ -1334,13 +1463,18 @@ key_entry.insert(0, key)
 
 
 def move_text_up():
+    """?"""
+
     text = node_id_entry.get()
     # TODO: Check if length of text is correct
     text = int(text.replace("!", ""), 16)
     node_number_entry.delete(0, "end")
     node_number_entry.insert(0, text)
 
+
 def move_text_down():
+    """?"""
+
     text = node_number_entry.get()
     # TODO: Fix length of hex string (always 8 bytes)
     text = '!{}'.format(hex(int(text))[2:])
@@ -1511,10 +1645,11 @@ client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
 
-# Function to run the MQTT client loop in a separate thread
+
 def mqtt_thread():
-    if debug: print("MQTT Thread")
-    if debug: 
+    """Function to run the MQTT client loop in a separate thread."""
+    if debug:
+        print("MQTT Thread")
         if client.is_connected():
             print("client connected")
         else:
@@ -1525,8 +1660,8 @@ def mqtt_thread():
 mqtt_thread = threading.Thread(target=mqtt_thread, daemon=True)
 mqtt_thread.start()
 
-# Function to broadcast NodeInfo in a separate thread
 def send_node_info_periodically():
+    """Function to broadcast NodeInfo in a separate thread."""
     while True:
         if client.is_connected():
             send_node_info(BROADCAST_NUM, want_response=False)
@@ -1544,7 +1679,7 @@ def on_exit():
     if client.is_connected():
         client.disconnect()
         print("client disconnected")
-        db_connection.close()
+        #db_connection.close()	#db_connection is not used globally - it's only used inside specific functions
     root.destroy()
     client.loop_stop()
 
