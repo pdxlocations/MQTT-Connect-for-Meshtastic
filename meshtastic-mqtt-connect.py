@@ -551,7 +551,6 @@ def decode_encrypted(mp):
             print(f"failed to decrypt: \n{mp}")
         if debug:
             print(f"*** Decryption failed: {str(e)}")
-        #return		#Not needed, will automatically return
 
 
 def process_message(mp, text_payload, is_encrypted):
@@ -667,7 +666,6 @@ def direct_message(destination_id):
 def publish_message(destination_id):
     """?"""
 
-    #global key		#Unused in this function
     if debug:
         print("publish_message")
 
@@ -712,8 +710,7 @@ def send_node_info(destination_id, want_response):
     """Send my node information to the specified destination."""
 
     global node_number
-    #Following global variables not used in this function so they do not need to be global: client_short_name, client_long_name, 
-    #Following global variables used in this function but not modified, so do not need to be global: node_name, client_hw_model, BROADCAST_NUM
+
     if debug:
         print("send_node_info")
 
@@ -756,7 +753,7 @@ def send_position(destination_id) -> None:
     """Send current position to destination_id (which can be a broadcast.)"""
 
     global node_number
-    #Following global variables used in this function but not modified, so do not need to be global: BROADCAST_NUM
+    
     if debug:
         print("send_Position")
 
