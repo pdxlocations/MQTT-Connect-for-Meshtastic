@@ -119,9 +119,6 @@ default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
 db_file_path = "mmc.db"
 presets_file_path = "presets.json"
 presets = {}
-#db_cursor = None	#db_cursor is not used globally - it's only used inside specific functions
-#db_connection = None	#db_connection is not used globally - it's only used inside specific functions
-
 
 #################################
 # Program Base Functions
