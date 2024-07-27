@@ -1177,7 +1177,7 @@ def connect_mqtt():
     """Connect to the MQTT server."""
 
     if "tls_configured" not in connect_mqtt.__dict__:          #Persistent variable to remember if we've configured TLS yet
-        connect_mqtt.tls_configured: bool = False
+        connect_mqtt.tls_configured = False
 
     if debug:
         print("connect_mqtt")
