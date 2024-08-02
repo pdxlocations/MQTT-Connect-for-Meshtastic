@@ -8,6 +8,9 @@ Encryption/Decryption help from: https://github.com/dstewartgo
 Powered by Meshtastic™ https://meshtastic.org/
 """
 
+
+
+#### Imports
 try:
     from meshtastic.protobuf import mesh_pb2, mqtt_pb2, portnums_pb2, telemetry_pb2
     from meshtastic import BROADCAST_NUM
@@ -36,33 +39,29 @@ import paho.mqtt.client as mqtt
 
 import google.protobuf
 
-#### Debug Options
+
+
+#################################
+### Debug Options
 debug: bool = False
 auto_reconnect: bool = False
-auto_reconnect_delay = 1 # seconds
-print_service_envelope = False
-print_message_packet = False
-print_text_message = False
-print_node_info =  False
-print_telemetry = False
-print_failed_encryption_packet = False
-print_position_report = False
-color_text = False
-display_encrypted_emoji = True
-display_dm_emoji = True
-display_lookup_button = False
-display_private_dms = False
+auto_reconnect_delay: float = 1 # seconds
+print_service_envelope: bool = False
+print_message_packet: bool = False
+print_text_message: bool = False
+print_node_info: bool =  False
+print_telemetry: bool = False
+print_failed_encryption_packet: bool = False
+print_position_report: bool = False
+color_text: bool = False
+display_encrypted_emoji: bool = True
+display_dm_emoji: bool = True
+display_lookup_button: bool = False
+display_private_dms: bool = False
 
-record_locations = False
+record_locations: bool = False
 
-### tcl upstream bug warning
-tcl = tk.Tcl()
-if sys.platform.startswith('darwin'):
-    print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
-    print("If < version 8.6.13, mouse clicks will only be recognized when the mouse is moving")
-    print("unless the window is moved from it's original position.")
-    print("The built in window auto-centering code may help with this\n\n")
-
+#################################
 ### Default settings
 mqtt_broker = "mqtt.meshtastic.org"
 mqtt_port = 1883
@@ -76,33 +75,6 @@ max_msg_len = 255			# https://meshtastic.discourse.group/t/length-of-text-messag
 key_emoji = "\U0001F511"
 encrypted_emoji = "\U0001F512"
 dm_emoji = "\u2192"
-
-
-def is_valid_hex(test_value: str, minchars: Optional[int], maxchars: int) -> bool:
-    """Check if the provided string is valid hex.  Note that minchars and maxchars count INDIVIDUAL HEX LETTERS, inclusive.  Setting either to None means you don't care about that one."""
-
-    if test_value.startswith('!'):
-        test_value = test_value[1:]		#Ignore a leading exclamation point
-    valid_hex_return: bool = all(c in string.hexdigits for c in test_value)
-    if minchars is not None:
-        valid_hex_return = valid_hex_return and (minchars <= len(test_value))
-    if maxchars is not None:
-        valid_hex_return = valid_hex_return and (len(test_value) <= maxchars)
-
-    return valid_hex_return
-
-
-# Generate 4 random hexadecimal characters to create a unique node name
-random_hex_chars = ''.join(random.choices('0123456789abcdef', k=4))
-node_name = '!abcd' + random_hex_chars
-if not is_valid_hex(node_name, 8, 8):
-    print('Invalid generated node name: ' + str(node_name))
-    sys.exit(1)
-
-global_message_id = random.getrandbits(32)
-
-# Convert hex to int and remove '!'
-node_number = int(node_name.replace("!", ""), 16)
 
 client_short_name = "MMC"
 client_long_name = "MQTTastic"
@@ -120,8 +92,24 @@ db_file_path = "mmc.db"
 presets_file_path = "presets.json"
 presets = {}
 
+
+
+
 #################################
-# Program Base Functions
+### Program Base Functions
+def is_valid_hex(test_value: str, minchars: Optional[int], maxchars: int) -> bool:
+    """Check if the provided string is valid hex.  Note that minchars and maxchars count INDIVIDUAL HEX LETTERS, inclusive.  Setting either to None means you don't care about that one."""
+
+    if test_value.startswith('!'):
+        test_value = test_value[1:]		#Ignore a leading exclamation point
+    valid_hex_return: bool = all(c in string.hexdigits for c in test_value)
+    if minchars is not None:
+        valid_hex_return = valid_hex_return and (minchars <= len(test_value))
+    if maxchars is not None:
+        valid_hex_return = valid_hex_return and (len(test_value) <= maxchars)
+
+    return valid_hex_return
+
 
 def set_topic():
     """?"""
@@ -134,18 +122,18 @@ def set_topic():
     publish_topic = root_topic + channel + "/" + node_name
 
 
-def current_time():
-    """Return the current time as a string."""
+def current_time() -> str:
+    """Return the current time (as an integer number of seconds since the epoch) as a string."""
 
     current_time_str = str(int(time.time()))
     return current_time_str
 
 
-def format_time(time_str):
-    """Convert the time string back to a datetime object."""
+def format_time(time_str: str) -> str:
+    """Convert the time string (number of seconds since the epoch) back to a datetime object."""
 
-    timestamp = int(time_str)
-    time_dt = datetime.fromtimestamp(timestamp)
+    timestamp: int = int(time_str)
+    time_dt: datetime = datetime.fromtimestamp(timestamp)
 
     # Get the current datetime for comparison
     now = datetime.now()
@@ -161,7 +149,7 @@ def format_time(time_str):
     return time_formatted
 
 
-def xor_hash(data):
+def xor_hash(data: bytes) -> int:
     """Return XOR hash of all bytes in the provided string."""
 
     result = 0
@@ -170,22 +158,22 @@ def xor_hash(data):
     return result
 
 
-def generate_hash(name, key):
+def generate_hash(name: str, key: str) -> int:
     """?"""
 
     replaced_key = key.replace('-', '+').replace('_', '/')
     key_bytes = base64.b64decode(replaced_key.encode('utf-8'))
     h_name = xor_hash(bytes(name, 'utf-8'))
     h_key = xor_hash(key_bytes)
-    result = h_name ^ h_key
+    result: int = h_name ^ h_key
     return result
 
 
-def get_name_by_id(name_type: str, user_id):
+def get_name_by_id(name_type: str, user_id: str) -> str:
     """See if we have a (long or short, as specified by "name_type") name for the given user_id."""
 
     # Convert the user_id to hex and prepend '!'
-    hex_user_id = '!%08x' % user_id
+    hex_user_id: str = '!%08x' % user_id
 
     try:
         table_name = sanitize_string(mqtt_broker) + "_" + sanitize_string(root_topic) + sanitize_string(channel) + "_nodeinfo"
@@ -219,7 +207,7 @@ def get_name_by_id(name_type: str, user_id):
     return f"Unknown User ({hex_user_id})"
 
 
-def sanitize_string(input_str):
+def sanitize_string(input_str: str) -> str:
     """Check if the string starts with a letter (a-z, A-Z) or an underscore (_), and replace all non-alpha/numeric/underscore characters with underscores."""
 
     if not re.match(r'^[a-zA-Z_]', input_str):
@@ -227,8 +215,10 @@ def sanitize_string(input_str):
         input_str = '_' + input_str
 
     # Replace special characters with underscores (for database tables)
-    sanitized_str = re.sub(r'[^a-zA-Z0-9_]', '_', input_str)
+    sanitized_str: str = re.sub(r'[^a-zA-Z0-9_]', '_', input_str)
     return sanitized_str
+
+
 
 
 #################################
@@ -370,8 +360,6 @@ def load_presets_from_file():
             return {name: Preset(**data) for name, data in loaded_presets.items()}
     except FileNotFoundError:
         return {}
-# Initialize presets from the file
-presets = load_presets_from_file()
 
 
 #################################
@@ -383,7 +371,7 @@ def on_message(client, userdata, msg):						# pylint: disable=unused-argument
     # if debug:
     #     print("on_message")
     se = mqtt_pb2.ServiceEnvelope()
-    is_encrypted = False
+    is_encrypted: bool = False
     try:
         se.ParseFromString(msg.payload)
         if print_service_envelope:
@@ -750,7 +738,7 @@ def send_position(destination_id) -> None:
     """Send current position to destination_id (which can be a broadcast.)"""
 
     global node_number
-    
+
     if debug:
         print("send_Position")
 
@@ -1364,6 +1352,86 @@ def on_nodeinfo_click(event):							# pylint: disable=unused-argument
     entry_dm.insert(0, to_id)
 
 
+def move_text_up():
+    """?"""
+
+    text = node_id_entry.get()
+    # TODO: Check if length of text is correct
+    text = int(text.replace("!", ""), 16)
+    node_number_entry.delete(0, "end")
+    node_number_entry.insert(0, text)
+
+
+def move_text_down():
+    """?"""
+
+    text = node_number_entry.get()
+    # TODO: Fix length of hex string (always 8 bytes)
+    text = '!{}'.format(hex(int(text))[2:])
+    node_id_entry.delete(0, "end")
+    node_id_entry.insert(0, text)
+
+
+def mqtt_thread():
+    """Function to run the MQTT client loop in a separate thread."""
+    if debug:
+        print("MQTT Thread")
+        if client.is_connected():
+            print("client connected")
+        else:
+            print("client not connected")
+    while True:
+        client.loop()
+
+
+def send_node_info_periodically() -> None:
+    """Function to broadcast NodeInfo in a separate thread."""
+    while True:
+        if client.is_connected():
+            send_node_info(BROADCAST_NUM, want_response=False)
+
+            if lon_entry.get() and lon_entry.get():
+                send_position(BROADCAST_NUM)
+
+        time.sleep(node_info_interval_minutes * 60)  # Convert minutes to seconds
+
+
+def on_exit():
+    """Function to be called when the GUI is closed."""
+    if client.is_connected():
+        client.disconnect()
+        print("client disconnected")
+        #db_connection.close()	#db_connection is not used globally - it's only used inside specific functions
+    root.destroy()
+    client.loop_stop()
+
+
+
+
+### tcl upstream bug warning
+tcl = tk.Tcl()
+if sys.platform.startswith('darwin'):
+    print(f"\n\n**** IF MAC OS SONOMA **** you are using tcl version: {tcl.call('info', 'patchlevel')}")
+    print("If < version 8.6.13, mouse clicks will only be recognized when the mouse is moving")
+    print("unless the window is moved from it's original position.")
+    print("The built in window auto-centering code may help with this\n\n")
+
+# Generate 4 random hexadecimal characters to create a unique node name
+random_hex_chars = ''.join(random.choices('0123456789abcdef', k=4))
+node_name = '!abcd' + random_hex_chars
+if not is_valid_hex(node_name, 8, 8):
+    print('Invalid generated node name: ' + str(node_name))
+    sys.exit(1)
+
+global_message_id = random.getrandbits(32)
+
+# Convert hex to int and remove '!'
+node_number = int(node_name.replace("!", ""), 16)
+
+# Initialize presets from the file
+presets = load_presets_from_file()
+
+
 ############################
 # GUI Layout
 
@@ -1454,26 +1522,6 @@ key_entry.grid(row=5, column=1, padx=5, pady=1, sticky=tk.EW)
 key_entry.insert(0, key)
 
 
-
-
-def move_text_up():
-    """?"""
-
-    text = node_id_entry.get()
-    # TODO: Check if length of text is correct
-    text = int(text.replace("!", ""), 16)
-    node_number_entry.delete(0, "end")
-    node_number_entry.insert(0, text)
-
-
-def move_text_down():
-    """?"""
-
-    text = node_number_entry.get()
-    # TODO: Fix length of hex string (always 8 bytes)
-    text = '!{}'.format(hex(int(text))[2:])
-    node_id_entry.delete(0, "end")
-    node_id_entry.insert(0, text)
 
 
 
@@ -1639,43 +1687,11 @@ client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
 
-
-def mqtt_thread():
-    """Function to run the MQTT client loop in a separate thread."""
-    if debug:
-        print("MQTT Thread")
-        if client.is_connected():
-            print("client connected")
-        else:
-            print("client not connected")
-    while True:
-        client.loop()
-
 mqtt_thread = threading.Thread(target=mqtt_thread, daemon=True)
 mqtt_thread.start()
 
-def send_node_info_periodically():
-    """Function to broadcast NodeInfo in a separate thread."""
-    while True:
-        if client.is_connected():
-            send_node_info(BROADCAST_NUM, want_response=False)
-
-            if lon_entry.get() and lon_entry.get():
-                send_position(BROADCAST_NUM)
-
-        time.sleep(node_info_interval_minutes * 60)  # Convert minutes to seconds
-
 node_info_timer = threading.Thread(target=send_node_info_periodically, daemon=True)
 node_info_timer.start()
-
-def on_exit():
-    """Function to be called when the GUI is closed."""
-    if client.is_connected():
-        client.disconnect()
-        print("client disconnected")
-        #db_connection.close()	#db_connection is not used globally - it's only used inside specific functions
-    root.destroy()
-    client.loop_stop()
 
 # Set the exit handler
 root.protocol("WM_DELETE_WINDOW", on_exit)
