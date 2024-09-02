@@ -379,10 +379,7 @@ def on_message(client, userdata, msg):						# pylint: disable=unused-argument
             print ("Service Envelope:")
             print (se)
         mp = se.packet
-        if print_message_packet:
-            print ("")
-            print ("Message Packet:")
-            print(mp)
+
     except Exception as e:
         print(f"*** ServiceEnvelope: {str(e)}")
         return
@@ -395,6 +392,11 @@ def on_message(client, userdata, msg):						# pylint: disable=unused-argument
     if mp.HasField("encrypted") and not mp.HasField("decoded"):
         decode_encrypted(mp)
         is_encrypted=True
+    
+    if print_message_packet:
+        print ("")
+        print ("Message Packet:")
+        print(mp)
 
     if mp.decoded.portnum == portnums_pb2.TEXT_MESSAGE_APP:
         try:
