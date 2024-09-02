@@ -704,6 +704,9 @@ def send_node_info(destination_id, want_response):
         message =  format_time(current_time()) + " >>> Connect to a broker before sending nodeinfo"
         update_gui(message, tag="info")
     else:
+        if not move_text_up(): # copy ID to Number and test for 8 bit hex
+            return
+        
         if destination_id == BROADCAST_NUM:
             message =  format_time(current_time()) + " >>> Broadcast NodeInfo Packet"
             update_gui(message, tag="info")
