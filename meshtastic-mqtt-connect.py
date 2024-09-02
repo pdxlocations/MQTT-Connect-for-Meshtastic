@@ -70,8 +70,7 @@ mqtt_password = "large4cats"
 root_topic = "msh/US/2/e/"
 channel = "LongFast"
 key = "AQ=="
-max_msg_len = 255			# https://meshtastic.discourse.group/t/length-of-text-messages/894 , https://meshtastic.discourse.group/t/meshtastic-lora-packet-size/7953/8
-
+max_msg_len = mesh_pb2.Constants.DATA_PAYLOAD_LEN
 key_emoji = "\U0001F511"
 encrypted_emoji = "\U0001F512"
 dm_emoji = "\u2192"
