@@ -877,7 +877,7 @@ def setup_db():
     """Create the initial database and the nodeinfo, messages, and positions tables in it."""
     if debug:
         print("setup_db")
-    #global db_connection	#db_connection is not used globally - it's only used inside specific functions
+        
     with sqlite3.connect(db_file_path) as db_connection:
         db_cursor = db_connection.cursor()
 
@@ -1340,7 +1340,7 @@ def on_nodeinfo_click(event):							# pylint: disable=unused-argument
 
     if debug:
         print("on_nodeinfo_click")
-    #global to_id		#No global variable with that name any more
+
     # Get the index of the clicked position
     index = nodeinfo_window.index(tk.CURRENT)
 
@@ -1357,20 +1357,25 @@ def move_text_up():
     """?"""
 
     text = node_id_entry.get()
-    # TODO: Check if length of text is correct
-    text = int(text.replace("!", ""), 16)
-    node_number_entry.delete(0, "end")
-    node_number_entry.insert(0, text)
+    if not is_valid_hex(text, 8, 8):
+        print ("Not valid Hex")
+    else:
+        text = int(text.replace("!", ""), 16)
+        node_number_entry.delete(0, "end")
+        node_number_entry.insert(0, text)
 
 
 def move_text_down():
     """?"""
 
     text = node_number_entry.get()
-    # TODO: Fix length of hex string (always 8 bytes)
     text = '!{}'.format(hex(int(text))[2:])
-    node_id_entry.delete(0, "end")
-    node_id_entry.insert(0, text)
+
+    if not is_valid_hex(text, 8, 8):
+        print ("Not valid Hex")
+    else:
+        node_id_entry.delete(0, "end")
+        node_id_entry.insert(0, text)
 
 
 def mqtt_thread():
@@ -1402,7 +1407,6 @@ def on_exit():
     if client.is_connected():
         client.disconnect()
         print("client disconnected")
-        #db_connection.close()	#db_connection is not used globally - it's only used inside specific functions
     root.destroy()
     client.loop_stop()
 
