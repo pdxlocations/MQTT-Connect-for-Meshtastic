@@ -28,7 +28,7 @@ from datetime import datetime
 from time import mktime
 from typing import Optional
 import tkinter as tk
-from tkinter import scrolledtext, simpledialog
+from tkinter import scrolledtext, simpledialog, messagebox
 import tkinter.messagebox
 import base64
 import json
@@ -877,7 +877,7 @@ def setup_db():
     """Create the initial database and the nodeinfo, messages, and positions tables in it."""
     if debug:
         print("setup_db")
-        
+
     with sqlite3.connect(db_file_path) as db_connection:
         db_cursor = db_connection.cursor()
 
@@ -1187,6 +1187,9 @@ def connect_mqtt():
                     print("key is default, expanding to AES128")
                 key = "1PG7OiApB1nwvP+rz05pAQ=="
 
+            if not move_text_up(): # copy ID to Number and test for 8 bit hex
+                return
+            
             node_number = int(node_number_entry.get())  # Convert the input to an integer
 
             padded_key = key.ljust(len(key) + ((4 - (len(key) % 4)) % 4), '=')
@@ -1359,10 +1362,13 @@ def move_text_up():
     text = node_id_entry.get()
     if not is_valid_hex(text, 8, 8):
         print ("Not valid Hex")
+        messagebox.showwarning("Warning", "Not a valid Hex ID")
+        return False
     else:
         text = int(text.replace("!", ""), 16)
         node_number_entry.delete(0, "end")
         node_number_entry.insert(0, text)
+        return True
 
 
 def move_text_down():
@@ -1373,9 +1379,12 @@ def move_text_down():
 
     if not is_valid_hex(text, 8, 8):
         print ("Not valid Hex")
+        messagebox.showwarning("Warning", "Not a valid Hex ID")
+        return False
     else:
         node_id_entry.delete(0, "end")
         node_id_entry.insert(0, text)
+        return True
 
 
 def mqtt_thread():
