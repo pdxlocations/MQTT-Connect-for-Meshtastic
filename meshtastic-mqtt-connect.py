@@ -1668,7 +1668,18 @@ tr_button = tk.Button(message_log_frame, text="Trace Route", command=lambda: sen
 tr_button.grid(row=16, column=2, padx=5, pady=1 if display_lookup_button else (1,5), sticky=tk.EW)
 
 if display_lookup_button:
-    lookup_button = tk.Button(message_log_frame, text="Lookup", command=lambda: get_name_by_id("short", int(entry_dm.get()[1:], 16)))
+    def lookup_action():
+        entry_value = entry_dm.get()[1:]  # Get the string without the first character
+        if entry_value:  # Check if the string is not empty
+            try:
+                hex_value = int(entry_value, 16)
+                get_name_by_id("short", hex_value)
+            except ValueError:
+                print("Invalid hex value")
+        else:
+            print("Entry is empty")
+    
+    lookup_button = tk.Button(message_log_frame, text="Lookup", command=lookup_action)
     lookup_button.grid(row=17, column=2, padx=5, pady=(1,5), sticky=tk.EW)
 
 ### NODE LIST
