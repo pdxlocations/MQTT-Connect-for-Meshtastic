@@ -75,7 +75,7 @@ key_emoji = "\U0001F511"
 encrypted_emoji = "\U0001F512"
 dm_emoji = "\u2192"
 
-client_short_name = "MMC"
+client_short_name = "MCM"
 client_long_name = "MQTTastic"
 lat = ""
 lon = ""
