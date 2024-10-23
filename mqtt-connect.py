@@ -503,12 +503,12 @@ def on_message(client, userdata, msg):						# pylint: disable=unused-argument
                 routes = [to_node]
 
                 if routeBack_string:
-                    routes.append(routeBack_string)
+                    routes.append(route_string)
 
                 routes.append(from_node)
 
                 if route_string:
-                    routes.append(route_string)
+                    routes.append(routeBack_string)
 
                 routes.append(to_node)
 
