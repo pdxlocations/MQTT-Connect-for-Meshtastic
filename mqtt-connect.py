@@ -37,9 +37,6 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import paho.mqtt.client as mqtt
 
-import google.protobuf
-
-
 
 #################################
 ### Debug Options
@@ -495,20 +492,38 @@ def on_message(client, userdata, msg):						# pylint: disable=unused-argument
             routeDiscovery = mesh_pb2.RouteDiscovery()
             routeDiscovery.ParseFromString(mp.decoded.payload)
 
-            asDict = google.protobuf.json_format.MessageToDict(routeDiscovery)
+            try:
+                route_string = " > ".join(get_name_by_id("long", node) for node in routeDiscovery.route) if routeDiscovery.route else ""
+                routeBack_string = " > ".join(get_name_by_id("long", node) for node in routeDiscovery.route_back) if routeDiscovery.route_back else ""
 
-            if debug:
-                print("Route traced:")
-            route_string = get_name_by_id("long", getattr(mp, 'to'))
+                to_node = get_name_by_id("long", getattr(mp, 'to'))
+                from_node = get_name_by_id("long", getattr(mp, 'from'))
 
-            for nodeNum in asDict["route"]:
-                    route_string += " --> " + get_name_by_id("long", nodeNum)
-            route_string += " --> " + get_name_by_id("long", getattr(mp, 'from'))
+                # Build the message without redundant arrows
+                routes = [to_node]
 
-            if get_name_by_id("long", getattr(mp, 'to')) == long_name_entry.get(): # only display my trace routes
+                if routeBack_string:
+                    routes.append(routeBack_string)
 
-                message =  format_time(current_time()) + " >>> Route: " + route_string
-                update_gui(message, tag="info")
+                routes.append(from_node)
+
+                if route_string:
+                    routes.append(route_string)
+
+                routes.append(to_node)
+
+                final_route = " > ".join(routes)
+                message = f"{format_time(current_time())} >>> Route: {final_route}"
+
+                # Only display traceroutes originating from yourself
+                if getattr(mp, 'to') == int(node_number_entry.get()):
+                    update_gui(message, tag="info")
+
+            except AttributeError as e:
+                print(f"Error accessing route: {e}")
+            except Exception as ex:
+                print(f"Unexpected error: {ex}")
+
 
 
 def decode_encrypted(mp):
