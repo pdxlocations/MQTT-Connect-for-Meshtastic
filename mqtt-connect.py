@@ -858,6 +858,9 @@ def encrypt_message(channel, key, mesh_packet, encoded_message):
     if debug:
         print("encrypt_message")
 
+    if key == "AQ==":
+        key = "1PG7OiApB1nwvP+rz05pAQ=="
+
     mesh_packet.channel = generate_hash(channel, key)
     key_bytes = base64.b64decode(key.encode('ascii'))
 
