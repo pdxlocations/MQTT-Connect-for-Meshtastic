@@ -1,4 +1,4 @@
-Meshtastic MQTT Connect by pdxlocations
+MQTT Connect by pdxlocations
 
 <img width="1110" alt="topology" src="https://github.com/pdxlocations/Meshtastic-MQTT-Connect/assets/117498748/a0bf657d-2f91-4b7e-8f77-95cecb621153">
 
@@ -31,11 +31,11 @@ To view the interactive map you may need to install folium with
 
 `pip3 install folium`
 
-In meshtastic-mqtt-connect.py set `record_locations = True` in the configuration options around line 44.
+In main.py set `record_locations = True` in the configuration options around line 44.
 
-After you've connected to a channel for some time and received location information from at least one station, open mmc-map.py and enter your channel name.
+After you've connected to a channel for some time and received location information from at least one station, open mmc_map.py and enter your channel name.
 
-Run mmc-map.py and a file will be generated called mmc-map.html which may be opened in a browser.
+Run mmc_map.py and a file will be generated called mmc-map.html which may be opened in a browser.
 
 <img width="964" alt="Screenshot 2024-01-10 at 11 12 37 PM" src="https://github.com/pdxlocations/Meshtastic-MQTT-Connect/assets/117498748/2ab888bb-ac0b-448a-bd23-4648345de3a8">
 
