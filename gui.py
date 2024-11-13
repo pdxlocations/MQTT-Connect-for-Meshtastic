@@ -478,3 +478,7 @@ def move_text_down():
         return True
 
 
+def clear_node_window():
+    nodeinfo_window.config(state=tk.NORMAL)
+    nodeinfo_window.delete('1.0', tk.END)
+    nodeinfo_window.config(state=tk.DISABLED)

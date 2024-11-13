@@ -1,30 +1,37 @@
-import preferences
+from meshtastic import BROADCAST_NUM
+import time
+import ssl
+from preferences import debug, auto_reconnect, auto_reconnect_delay
+from gui import move_text_up, update_gui, clear_node_window, update_node_list, get_entry
+from database_functions import setup_db, load_message_history_from_db
+from helper_functions import format_time, current_time
+from tx_message_handler import send_node_info, send_position
 
 #################################
 # MQTT Server
 
-def connect_mqtt():
+def connect_mqtt(client):
     """Connect to the MQTT server."""
 
     if "tls_configured" not in connect_mqtt.__dict__:          #Persistent variable to remember if we've configured TLS yet
         connect_mqtt.tls_configured = False
 
-    if preferences.debug:
+    if debug:
         print("connect_mqtt")
-    global mqtt_broker, mqtt_port, mqtt_username, mqtt_password, root_topic, channel, node_number, db_file_path, key
+    # global mqtt_broker, mqtt_port, mqtt_username, mqtt_password, root_topic, channel, node_number, db_file_path, key
     if not client.is_connected():
         try:
-            mqtt_broker = mqtt_broker_entry.get()
+            mqtt_broker = get_entry("mqtt_broker")
             if ':' in mqtt_broker:
                 mqtt_broker,mqtt_port = mqtt_broker.split(':')
                 mqtt_port = int(mqtt_port)
 
-            mqtt_username = mqtt_username_entry.get()
-            mqtt_password = mqtt_password_entry.get()
-            root_topic = root_topic_entry.get()
-            channel = channel_entry.get()
+            mqtt_username = get_entry("mqtt_username")
+            mqtt_password = get_entry("mqtt_password")
+            root_topic = get_entry("root_topic")
+            channel = get_entry("channel")
 
-            key = key_entry.get()
+            key = get_entry("key")
 
             if key == "AQ==":
                 if debug:
@@ -34,7 +41,7 @@ def connect_mqtt():
             if not move_text_up(): # copy ID to Number and test for 8 bit hex
                 return
             
-            node_number = int(node_number_entry.get())  # Convert the input to an integer
+            node_number = int(get_entry("node_number"))  # Convert the input to an integer
 
             padded_key = key.ljust(len(key) + ((4 - (len(key) % 4)) % 4), '=')
             replaced_key = padded_key.replace('-', '+').replace('_', '/')
@@ -57,20 +64,20 @@ def connect_mqtt():
             update_gui(f"{format_time(current_time())} >>> Failed to connect to MQTT broker: {str(e)}", tag="info")
 
         update_node_list()
-    elif client.is_connected() and channel_entry.get() is not channel:
+    elif client.is_connected() and get_entry("channel") is not channel:
         print("Channel has changed, disconnect and reconnect")
         if auto_reconnect:
             print("auto_reconnect disconnecting from MQTT broker")
-            disconnect_mqtt()
+            disconnect_mqtt(client)
             time.sleep(auto_reconnect_delay)
             print("auto_reconnect connecting to MQTT broker")
-            connect_mqtt()
+            connect_mqtt(client)
 
     else:
         update_gui(f"{format_time(current_time())} >>> Already connected to {mqtt_broker}", tag="info")
 
 
-def disconnect_mqtt():
+def disconnect_mqtt(client):
     """Disconnect from the MQTT server."""
 
     if debug:
@@ -79,9 +86,8 @@ def disconnect_mqtt():
         client.disconnect()
         update_gui(f"{format_time(current_time())} >>> Disconnected from MQTT broker", tag="info")
         # Clear the display
-        nodeinfo_window.config(state=tk.NORMAL)
-        nodeinfo_window.delete('1.0', tk.END)
-        nodeinfo_window.config(state=tk.DISABLED)
+        clear_node_window()
+
     else:
         update_gui("Already disconnected", tag="info")
 
@@ -100,7 +106,7 @@ def set_topic(root_topic, channel):
 def on_connect(client, userdata, flags, reason_code, properties):		# pylint: disable=unused-argument
     """?"""
 
-    set_topic(root_topic, channel)
+    set_topic(get_entry("root_topic"), get_entry("channel"))
 
     if debug:
         print("on_connect")
@@ -112,11 +118,11 @@ def on_connect(client, userdata, flags, reason_code, properties):		# pylint: dis
         if debug:
             print(f"Subscribe Topic is: {subscribe_topic}")
         client.subscribe(subscribe_topic)
-        message = f"{format_time(current_time())} >>> Connected to {mqtt_broker} on topic {channel} as {'!' + hex(node_number)[2:]}"
+        message = f"{format_time(current_time())} >>> Connected to {get_entry("mqtt_broker")} on topic {get_entry("channel")} as {'!' + hex(node_number)[2:]}"
         update_gui(message, tag="info")
         send_node_info(BROADCAST_NUM, want_response=False)
 
-        if lon_entry.get() and lon_entry.get():
+        if get_entry("lon") and get_entry("lat"):
             send_position(BROADCAST_NUM)
 
     else:
@@ -135,4 +141,4 @@ def on_disconnect(client, userdata, flags, reason_code, properties):		# pylint: 
         if auto_reconnect is True:
             print("attempting to reconnect in " + str(auto_reconnect_delay) + " second(s)")
             time.sleep(auto_reconnect_delay)
-            connect_mqtt()
+            connect_mqtt(client)

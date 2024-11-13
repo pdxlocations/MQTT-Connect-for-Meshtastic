@@ -7,8 +7,7 @@ import re
 from meshtastic import BROADCAST_NUM
 from preferences import debug
 
-#################################
-### Program Base Functions
+
 def is_valid_hex(test_value: str, minchars: Optional[int], maxchars: int) -> bool:
     """Check if the provided string is valid hex.  Note that minchars and maxchars count INDIVIDUAL HEX LETTERS, inclusive.  Setting either to None means you don't care about that one."""
 
@@ -21,8 +20,6 @@ def is_valid_hex(test_value: str, minchars: Optional[int], maxchars: int) -> boo
         valid_hex_return = valid_hex_return and (len(test_value) <= maxchars)
 
     return valid_hex_return
-
-
 
 
 def current_time() -> str:
@@ -70,9 +67,6 @@ def generate_hash(name: str, key: str) -> int:
     h_key = xor_hash(key_bytes)
     result: int = h_name ^ h_key
     return result
-
-
-
 
 
 def sanitize_string(input_str: str) -> str:

@@ -24,7 +24,7 @@ def publish_message(client, destination_id):
         print("publish_message")
 
     if not client.is_connected():
-        connect_mqtt()
+        connect_mqtt(client)
 
     message_text = message_entry.get()
     if message_text:
