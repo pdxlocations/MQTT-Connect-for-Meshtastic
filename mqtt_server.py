@@ -11,6 +11,7 @@ from tx_message_handler import send_node_info, send_position
 # MQTT Server
 
 def connect_mqtt(client):
+    
     """Connect to the MQTT server."""
 
     if "tls_configured" not in connect_mqtt.__dict__:          #Persistent variable to remember if we've configured TLS yet
@@ -142,3 +143,4 @@ def on_disconnect(client, userdata, flags, reason_code, properties):		# pylint: 
             print("attempting to reconnect in " + str(auto_reconnect_delay) + " second(s)")
             time.sleep(auto_reconnect_delay)
             connect_mqtt(client)
+

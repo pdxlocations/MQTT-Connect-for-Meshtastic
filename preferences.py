@@ -41,3 +41,7 @@ lon = ""
 alt = ""
 client_hw_model = 255
 node_info_interval_minutes = 15
+
+default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
+db_file_path = "mmc.db"
+presets_file_path = "presets.json"

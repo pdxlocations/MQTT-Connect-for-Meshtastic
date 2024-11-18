@@ -30,14 +30,8 @@ from encryption import encrypt_message, decode_encrypted
 from preferences import debug, display_dm_emoji, dm_emoji, display_private_dms, encrypted_emoji, display_encrypted_emoji, auto_reconnect, auto_reconnect_delay
 import preferences
 from gui import build_gui
+from mqtt_server import on_connect, on_disconnect
 
-#################################
-### Program variables
-
-default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
-db_file_path = "mmc.db"
-presets_file_path = "presets.json"
-presets = {}
 
 
 def mqtt_thread():
@@ -72,22 +66,6 @@ def on_exit():
     root.destroy()
     client.loop_stop()
 
-
-
-entries = get_entry()
-mqtt_broker = entries["mqtt_broker"]
-mqtt_username = entries["mqtt_username"]
-mqtt_password = entries["mqtt_password"]
-root_topic = entries["root_topic"]
-channel = entries["channel"]
-key = entries["key"]
-node_number = entries["node_number"]
-node_id = entries["node_id"]
-client_long_name = entries["long_name"]
-client_short_name = entries["short_name"]
-lat = entries["lat"]
-lon = entries["lon"]
-alt = entries["alt"]
 
 
 ### tcl upstream bug warning
@@ -125,11 +103,18 @@ client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
 
+def check_client_connected() -> bool:
+    if not client.is_connected():
+        return False
+    return True
+
+
 mqtt_thread = threading.Thread(target=mqtt_thread, daemon=True)
 mqtt_thread.start()
 
 node_info_timer = threading.Thread(target=send_node_info_periodically, daemon=True)
 node_info_timer.start()
+
 
 # Set the exit handler
 root.protocol("WM_DELETE_WINDOW", on_exit)

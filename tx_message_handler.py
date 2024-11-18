@@ -1,5 +1,10 @@
-import preferences
+from meshtastic.protobuf import portnums_pb2, mesh_pb2
+from meshtastic import BROADCAST_NUM
+from preferences import debug, client_hw_model
 from mqtt_server import connect_mqtt
+from helper_functions import format_time, current_time
+from gui import update_gui, get_entry
+
 
 #################################
 # Send Messages
@@ -7,20 +12,20 @@ from mqtt_server import connect_mqtt
 def direct_message(client, destination_id):
     """Send a direct message."""
 
-    if preferences.debug:
+    if debug:
         print("direct_message")
     if destination_id:
         try:
             destination_id = int(destination_id[1:], 16)
             publish_message(client, destination_id)
         except Exception as e:
-            if preferences.debug:
+            if debug:
                 print(f"Error converting destination_id: {e}")
 
 def publish_message(client, destination_id):
     """?"""
 
-    if preferences.debug:
+    if debug:
         print("publish_message")
 
     if not client.is_connected():
@@ -37,7 +42,7 @@ def publish_message(client, destination_id):
     #    return
 
 
-def send_traceroute(destination_id):
+def send_traceroute(client, destination_id):
     """Send traceroute request to destination_id."""
 
     if debug:
@@ -82,12 +87,12 @@ def send_node_info(destination_id, want_response):
             if debug:
                 print(f"Sending NodeInfo Packet to {str(destination_id)}")
 
-        node_number = int(node_number_entry.get())
+        node_number = int(get_entry("node_number"))
 
-        decoded_client_id = bytes(node_name, "utf-8")
-        decoded_client_long = bytes(long_name_entry.get(), "utf-8")
-        decoded_client_short = bytes(short_name_entry.get(), "utf-8")
-        decoded_client_hw_model = preferences.client_hw_model
+        decoded_client_id = bytes(get_entry("node_name"), "utf-8")
+        decoded_client_long = bytes(get_entry("long_name"), "utf-8")
+        decoded_client_short = bytes(get_entry("short_name"), "utf-8")
+        decoded_client_hw_model = client_hw_model
 
         user_payload = mesh_pb2.User()
         setattr(user_payload, "id", decoded_client_id)

@@ -2,6 +2,8 @@
 import json
 import tkinter as tk
 
+presets = {}
+
 class Preset:
     def __init__(self, name, broker, username, password, root_topic, channel, key, node_number, long_name, short_name, lat, lon, alt):
         self.name = name
