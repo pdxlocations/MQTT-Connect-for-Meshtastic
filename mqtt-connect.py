@@ -87,18 +87,25 @@ default_key = "1PG7OiApB1nwvP+rz05pAQ==" # AKA AQ==
 db_file_path = "mmc.db"
 presets_file_path = "presets.json"
 presets = {}
-
+reserved_ids = [1,2,3,4,4294967295]
 
 
 
 #################################
 ### Program Base Functions
+
+
 def is_valid_hex(test_value: str, minchars: Optional[int], maxchars: int) -> bool:
     """Check if the provided string is valid hex.  Note that minchars and maxchars count INDIVIDUAL HEX LETTERS, inclusive.  Setting either to None means you don't care about that one."""
 
     if test_value.startswith('!'):
         test_value = test_value[1:]		#Ignore a leading exclamation point
     valid_hex_return: bool = all(c in string.hexdigits for c in test_value)
+
+    decimal_value = int(test_value, 16)
+    if decimal_value in reserved_ids:
+        return False
+    
     if minchars is not None:
         valid_hex_return = valid_hex_return and (minchars <= len(test_value))
     if maxchars is not None:
