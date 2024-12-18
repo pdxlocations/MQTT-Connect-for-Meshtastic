@@ -7,7 +7,7 @@ Many thanks to and inspiration from: https://github.com/arankwende/meshtastic-mq
 
 Requires packages: Meshtastic, Paho-MQTT v2, Tkinter, cryptography which might be installed with:
 
-`pip3 install meshtastic paho-mqtt tk cryptography`
+`pip3 install meshtastic paho-mqtt tkinter cryptography`
 
 *** Mac OS Sonoma (and maybe others) ***
 There is an upstream bug in Tkinter where mouse clicks in the UI are not registered, unless the mouse is in motion.
