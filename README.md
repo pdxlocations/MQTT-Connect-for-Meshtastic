@@ -1,4 +1,4 @@
-## Connect - An nodeless MQTT Client for Meshtastic
+## Connect - A Nodeless MQTT Client for Meshtastic
 
 <img width="1110" alt="topology" src="https://github.com/pdxlocations/Meshtastic-MQTT-Connect/assets/117498748/a0bf657d-2f91-4b7e-8f77-95cecb621153">
 
