@@ -22,7 +22,6 @@ cd MQTT-Connect-for-Meshtastic
 python mqtt-connect.py
 ```
 
-
 *** Mac OS Sonoma (and maybe others) ***
 There is an upstream bug in Tkinter where mouse clicks in the UI are not registered, unless the mouse is in motion.
 The current workaround is to move the application window away from it's opening state, and/or move the mouse slightly while clicking.
